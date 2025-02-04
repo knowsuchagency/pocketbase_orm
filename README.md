@@ -21,7 +21,6 @@ uv install pocketbase-orm
 from pocketbase import PocketBase
 from pocketbase_orm import PBModel
 from pydantic import EmailStr, AnyUrl, Field
-from typing import List, Union
 from datetime import datetime, timezone
 from pocketbase.client import FileUpload
 
@@ -38,7 +37,7 @@ class Example(PBModel):
     is_active: bool
     url_field: AnyUrl
     created_at: datetime
-    options: List[str]
+    options: list[str]
     email_field: EmailStr | None = None
     related_model: RelatedModel | str = Field(..., description="Related model reference")
     image: FileUpload | str = Field(default=None, description="Image file upload")

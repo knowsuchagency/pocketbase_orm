@@ -1,12 +1,12 @@
 import logging
-from typing import List, TypeVar, Dict, Any, Union
+from typing import TypeVar, Dict, Any, Union
 from pydantic import BaseModel, EmailStr, AnyUrl, Field
 from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from datetime import datetime, timezone
 import httpx
 
-__version__ = "0.6.0"
+__version__ = "0.6.2"
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -106,7 +106,7 @@ class PBModel(BaseModel):
         return cls.model_validate(processed_data)
 
     @classmethod
-    def get_list(cls, page: int = 1, per_page: int = 10, **kwargs) -> List[T]:
+    def get_list(cls, page: int = 1, per_page: int = 10, **kwargs) -> list[T]:
         """Get a list of records from the collection and convert to model instances."""
         result = cls.get_collection().get_list(page, per_page, kwargs)
         items = [
@@ -116,7 +116,7 @@ class PBModel(BaseModel):
         return items
 
     @classmethod
-    def get_full_list(cls, **kwargs) -> List[T]:
+    def get_full_list(cls, **kwargs) -> list[T]:
         """Get a full list of records and convert to model instances."""
         records = cls.get_collection().get_full_list(**kwargs)
         return [
@@ -224,7 +224,7 @@ class PBModel(BaseModel):
             raise
 
     @classmethod
-    def _generate_fields(cls) -> List[Dict[str, Any]]:
+    def _generate_fields(cls) -> list[Dict[str, Any]]:
         """
         Generate the field definitions for the collection based on the Pydantic model.
         """
