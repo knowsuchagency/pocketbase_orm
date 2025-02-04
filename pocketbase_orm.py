@@ -47,6 +47,16 @@ class PBModel(BaseModel):
         cls._pb_client = client
 
     @classmethod
+    def get_collection_name(cls) -> str:
+        """
+        Get the collection name for the model.
+        Returns the collection_name from Meta if it exists, otherwise pluralizes the class name.
+        """
+        if hasattr(cls, "Meta") and hasattr(cls.Meta, "collection_name"):
+            return cls.Meta.collection_name
+        return _pluralize(cls.__name__.lower())
+
+    @classmethod
     def get_collection(cls):
         """
         Returns the collection instance for the model.
@@ -55,15 +65,7 @@ class PBModel(BaseModel):
             raise RuntimeError(
                 "PocketBase client not bound. Call PBModel.bind_client() first."
             )
-
-        # Get collection name from Meta if it exists, otherwise pluralize class name
-        collection_name = (
-            getattr(cls.Meta, "collection_name", None) if hasattr(cls, "Meta") else None
-        )
-        if collection_name is None:
-            collection_name = _pluralize(cls.__name__.lower())
-
-        return cls._pb_client.collection(collection_name)
+        return cls._pb_client.collection(cls.get_collection_name())
 
     @classmethod
     def delete(cls, *args, **kwargs):
@@ -134,12 +136,7 @@ class PBModel(BaseModel):
         """
         Sync the collection schema with PocketBase. Will create or update the collection.
         """
-        # Get collection name from Meta if it exists, otherwise pluralize class name
-        collection_name = (
-            getattr(cls.Meta, "collection_name", None) if hasattr(cls, "Meta") else None
-        )
-        if collection_name is None:
-            collection_name = _pluralize(cls.__name__.lower())
+        collection_name = cls.get_collection_name()
 
         try:
             existing_collection = cls._pb_client.collections.get_one(collection_name)
@@ -161,13 +158,7 @@ class PBModel(BaseModel):
         Create the collection schema in PocketBase.
         """
         fields = cls._generate_fields()
-
-        # Get collection name from Meta if it exists, otherwise pluralize class name
-        collection_name = (
-            getattr(cls.Meta, "collection_name", None) if hasattr(cls, "Meta") else None
-        )
-        if collection_name is None:
-            collection_name = _pluralize(cls.__name__.lower())
+        collection_name = cls.get_collection_name()
 
         collection_payload = {
             "name": collection_name,
@@ -381,13 +372,7 @@ class PBModel(BaseModel):
         Save the model instance to PocketBase.
         """
         client = self.get_collection().client
-        collection_name = (
-            getattr(self.__class__.Meta, "collection_name", None)
-            if hasattr(self.__class__, "Meta")
-            else None
-        )
-        if collection_name is None:
-            collection_name = _pluralize(self.__class__.__name__.lower())
+        collection_name = self.get_collection_name()
 
         # Prepare data for saving - handle file uploads specially
         data = {}
@@ -448,14 +433,7 @@ class PBModel(BaseModel):
         if not filename:
             raise ValueError(f"No file exists in field '{field}'")
 
-        # Get collection name from Meta if it exists, otherwise pluralize class name
-        collection_name = (
-            getattr(self.__class__.Meta, "collection_name", None)
-            if hasattr(self.__class__, "Meta")
-            else None
-        )
-        if collection_name is None:
-            collection_name = _pluralize(self.__class__.__name__.lower())
+        collection_name = self.get_collection_name()
 
         # Construct the PocketBase file URL
         file_url = f"{client.base_url}/api/files/{collection_name}/{self.id}/{filename}"
