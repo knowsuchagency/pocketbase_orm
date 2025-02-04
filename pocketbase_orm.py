@@ -46,24 +46,14 @@ class PBModel(BaseModel):
         return cls._pb_client.collection(cls.Meta.collection_name)
 
     @classmethod
-    def create(cls, *args, **kwargs):
-        """Create a new record in the collection."""
-        return cls.get_collection().create(*args, **kwargs)
-
-    @classmethod
-    def update(cls, *args, **kwargs):
-        """Update an existing record in the collection."""
-        return cls.get_collection().update(*args, **kwargs)
-
-    @classmethod
     def delete(cls, *args, **kwargs):
         """Delete a record from the collection."""
         return cls.get_collection().delete(*args, **kwargs)
 
     @classmethod
-    def get_one(cls, *args, **kwargs) -> T:
+    def get_one(cls, id: str, **kwargs) -> T:
         """Get a single record from the collection and convert to model instance."""
-        record = cls.get_collection().get_one(*args, **kwargs)
+        record = cls.get_collection().get_one(id, **kwargs)
         return cls.model_validate(record.__dict__)
 
     @classmethod
@@ -413,5 +403,5 @@ if __name__ == "__main__":
 
     example_list = Example.get_full_list()
     print(f"Example list: {example_list}")
-    example_ = Example.get_one(id=example.id)
+    example_ = Example.get_one(example.id)
     print(f"Example: {example_}")
