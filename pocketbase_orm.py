@@ -6,7 +6,7 @@ from pocketbase.client import FileUpload
 from datetime import datetime, timezone
 import httpx
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -101,14 +101,14 @@ class PBModel(BaseModel):
     @classmethod
     def get_one(cls, id: str, **kwargs) -> T:
         """Get a single record from the collection and convert to model instance."""
-        record = cls.get_collection().get_one(id, **kwargs)
+        record = cls.get_collection().get_one(id, kwargs)
         processed_data = cls._process_record_data(record.__dict__)
         return cls.model_validate(processed_data)
 
     @classmethod
-    def get_list(cls, *args, **kwargs) -> List[T]:
+    def get_list(cls, page: int = 1, per_page: int = 10, **kwargs) -> List[T]:
         """Get a list of records from the collection and convert to model instances."""
-        result = cls.get_collection().get_list(*args, **kwargs)
+        result = cls.get_collection().get_list(page, per_page, kwargs)
         items = [
             cls.model_validate(cls._process_record_data(record.__dict__))
             for record in result.items
@@ -116,18 +116,18 @@ class PBModel(BaseModel):
         return items
 
     @classmethod
-    def get_full_list(cls, *args, **kwargs) -> List[T]:
+    def get_full_list(cls, **kwargs) -> List[T]:
         """Get a full list of records and convert to model instances."""
-        records = cls.get_collection().get_full_list(*args, **kwargs)
+        records = cls.get_collection().get_full_list(**kwargs)
         return [
             cls.model_validate(cls._process_record_data(record.__dict__))
             for record in records
         ]
 
     @classmethod
-    def get_first_list_item(cls, *args, **kwargs) -> T:
+    def get_first_list_item(cls, query, **kwargs) -> T:
         """Get the first matching record and convert to model instance."""
-        record = cls.get_collection().get_first_list_item(*args, **kwargs)
+        record = cls.get_collection().get_first_list_item(query, kwargs)
         processed_data = cls._process_record_data(record.__dict__)
         return cls.model_validate(processed_data)
 
@@ -475,7 +475,9 @@ class Example(PBModel):
     related_model: Union[RelatedModel, str] = Field(
         ..., description="Related model reference"
     )
-    image: FileUpload | str = Field(default=None, description="Image file upload")
+    image: Union[FileUpload, str, None] = Field(
+        default=None, description="Image file upload"
+    )
 
     @field_validator("related_model", mode="before")
     def set_related_model(cls, v):
@@ -487,6 +489,8 @@ class Example(PBModel):
 
     @field_validator("image", mode="before")
     def validate_image(cls, v):
+        if v is None:
+            return v  # Allow None values
         if isinstance(v, str):
             return v  # Keep string URLs as-is
         if isinstance(v, FileUpload):

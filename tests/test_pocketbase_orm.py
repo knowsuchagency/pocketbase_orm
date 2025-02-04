@@ -74,7 +74,7 @@ def test_create_example_with_file(setup_models, related_model):
 
         # Test filtering
         filtered = Example.get_first_list_item(
-            filter=f"email_field = '{example.email_field}'"
+            f"email_field = '{example.email_field}'"
         )
         assert filtered.id
 
@@ -136,3 +136,49 @@ def test_example_validation(setup_models, related_model):
             options=["option1"],
             related_model=related_model.id,
         )
+
+
+def test_get_list_pagination(setup_models, related_model):
+    """Test pagination functionality of get_list method."""
+    # Create multiple example records
+    examples = []
+    for i in range(1, 15):  # Create 15 records to test pagination
+        example = Example(
+            text_field=f"Test {i}",
+            number_field=i,
+            is_active=True,
+            email_field=f"test{i}@example.com",
+            url_field="http://example.com",
+            created_at=datetime.now(timezone.utc),
+            options=["option1"],
+            related_model=related_model.id,
+        )
+        example.save()
+        examples.append(example)
+
+    try:
+        # Test first page (5 items)
+        page1 = Example.get_list(page=1, per_page=5)
+        assert len(page1) == 5
+
+        # Test second page (5 items)
+        page2 = Example.get_list(page=2, per_page=5)
+        assert len(page2) == 5
+
+        # Verify different records on different pages
+        page1_ids = {item.id for item in page1}
+        page2_ids = {item.id for item in page2}
+        assert not page1_ids.intersection(page2_ids)  # No overlap between pages
+
+        # Test with filter
+        filtered = Example.get_list(page=1, per_page=3, filter="number_field >= 10")
+        assert len(filtered) == 3
+        assert all(item.number_field >= 10 for item in filtered)
+
+    finally:
+        # Cleanup
+        for example in examples:
+            try:
+                Example.delete(example.id)
+            except Exception:
+                pass
