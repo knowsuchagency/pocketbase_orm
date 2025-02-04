@@ -1,12 +1,12 @@
 import logging
 from typing import List, TypeVar, Dict, Any, Union
-from pydantic import BaseModel, EmailStr, AnyUrl, Field, field_validator
+from pydantic import BaseModel, EmailStr, AnyUrl, Field
 from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from datetime import datetime, timezone
 import httpx
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -455,44 +455,3 @@ class PBModel(BaseModel):
             return response.content
         except Exception as e:
             raise RuntimeError(f"Error fetching file contents: {e}")
-
-
-class RelatedModel(PBModel):
-    name: str
-
-    class Meta:
-        collection_name = "related_models"
-
-
-class Example(PBModel):
-    text_field: str
-    number_field: int
-    is_active: bool
-    url_field: AnyUrl
-    created_at: datetime
-    options: List[str]
-    email_field: EmailStr | None = None
-    related_model: Union[RelatedModel, str] = Field(
-        ..., description="Related model reference"
-    )
-    image: Union[FileUpload, str, None] = Field(
-        default=None, description="Image file upload"
-    )
-
-    @field_validator("related_model", mode="before")
-    def set_related_model(cls, v):
-        if isinstance(v, str):
-            return v  # If it's already an ID, keep it
-        if isinstance(v, PBModel):
-            return v.id  # If it's a model instance, return its ID
-        return v  # In case it's None
-
-    @field_validator("image", mode="before")
-    def validate_image(cls, v):
-        if v is None:
-            return v  # Allow None values
-        if isinstance(v, str):
-            return v  # Keep string URLs as-is
-        if isinstance(v, FileUpload):
-            return v  # Keep FileUpload objects as-is
-        return v  # In case it's None

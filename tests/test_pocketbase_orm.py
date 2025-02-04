@@ -1,9 +1,52 @@
 import os
+from typing import Union
+from pydantic import AnyUrl, EmailStr, Field, field_validator
 import pytest
 from datetime import datetime, timezone
 from pocketbase import PocketBase
 from pocketbase.client import FileUpload
-from pocketbase_orm import PBModel, Example, RelatedModel
+from pocketbase_orm import PBModel
+
+
+class RelatedModel(PBModel):
+    name: str
+
+    class Meta:
+        collection_name = "related_models"
+
+
+class Example(PBModel):
+    text_field: str
+    number_field: int
+    is_active: bool
+    url_field: AnyUrl
+    created_at: datetime
+    options: list[str]
+    email_field: EmailStr | None = None
+    related_model: Union[RelatedModel, str] = Field(
+        ..., description="Related model reference"
+    )
+    image: Union[FileUpload, str, None] = Field(
+        default=None, description="Image file upload"
+    )
+
+    @field_validator("related_model", mode="before")
+    def set_related_model(cls, v):
+        if isinstance(v, str):
+            return v  # If it's already an ID, keep it
+        if isinstance(v, PBModel):
+            return v.id  # If it's a model instance, return its ID
+        return v  # In case it's None
+
+    @field_validator("image", mode="before")
+    def validate_image(cls, v):
+        if v is None:
+            return v  # Allow None values
+        if isinstance(v, str):
+            return v  # Keep string URLs as-is
+        if isinstance(v, FileUpload):
+            return v  # Keep FileUpload objects as-is
+        return v  # In case it's None
 
 
 @pytest.fixture
@@ -73,9 +116,7 @@ def test_create_example_with_file(setup_models, related_model):
         assert any(e.id == example.id for e in examples)
 
         # Test filtering
-        filtered = Example.get_first_list_item(
-            f"email_field = '{example.email_field}'"
-        )
+        filtered = Example.get_first_list_item(f"email_field = '{example.email_field}'")
         assert filtered.id
 
         # Test file contents
