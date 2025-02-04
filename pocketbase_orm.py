@@ -304,7 +304,7 @@ class PBModel(BaseModel):
             # Default to json for complex types
             return "json"
 
-    def save(self) -> "PBModel":
+    def save(self) -> T:
         """
         Save the model instance to PocketBase.
         If the model has an ID, it will update the existing record.
@@ -405,3 +405,6 @@ if __name__ == "__main__":
     print(f"Example list: {example_list}")
     example_ = Example.get_one(example.id)
     print(f"Example: {example_}")
+
+    example_2 = Example.get_first_list_item(filter=f"email_field = '{example.email_field}'")
+    print(f"Example 2: {example_2}")
