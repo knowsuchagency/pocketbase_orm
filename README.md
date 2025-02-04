@@ -4,12 +4,10 @@ A Python ORM (Object-Relational Mapper) for PocketBase that provides Pydantic mo
 
 ## Features
 
-- Pydantic model integration for data validation and serialization
-- Automatic schema synchronization with PocketBase collections
-- Support for all PocketBase field types including relations and file uploads
-- Simple and intuitive API for CRUD operations
-- Type hints and documentation for better development experience
-- Built-in logging for debugging and troubleshooting
+🚀 Pydantic model integration for data validation and serialization
+🔄 Automatic schema synchronization with PocketBase collections
+📦 Support for most PocketBase field types including relations and file uploads
+🛠️ Simple and intuitive API for CRUD operations
 
 ## Installation
 
@@ -32,7 +30,7 @@ class RelatedModel(PBModel):
     name: str
 
     class Meta:
-        collection_name = "related_models"
+        collection_name = "related_models" # Optional
 
 class Example(PBModel):
     text_field: str
@@ -42,7 +40,7 @@ class Example(PBModel):
     created_at: datetime
     options: List[str]
     email_field: EmailStr | None = None
-    related_model: Union[RelatedModel, str] = Field(..., description="Related model reference")
+    related_model: RelatedModel | str = Field(..., description="Related model reference")
     image: FileUpload | str = Field(default=None, description="Image file upload")
 
 # Initialize PocketBase client and bind it to the ORM
@@ -127,31 +125,12 @@ The collection name will be automatically derived from the class name (pluralize
 - `save() -> T`: Create or update the record
 - `get_file_contents(field: str) -> bytes`: Get the contents of a file field
 
-## Error Handling
-
-The library includes comprehensive error handling and logging:
-
-```python
-try:
-    record = MyModel.get_one("non_existent_id")
-except Exception as e:
-    logger.error(f"Error fetching record: {e}")
-```
-
-## Logging
-
-The library uses Python's built-in logging module. To enable debug logging:
-
-```python
-import logging
-logging.getLogger("pocketbase_orm").setLevel(logging.DEBUG)
-```
-
 ## Limitations
 
 - The ORM currently supports basic CRUD operations and schema synchronization
 - Complex queries should use the PocketBase client directly
 - Relationship handling is limited to single relations
+- Indexes must be created manually
 
 ## Contributing
 
@@ -159,4 +138,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
