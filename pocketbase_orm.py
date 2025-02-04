@@ -4,7 +4,7 @@ from pydantic import BaseModel, EmailStr, AnyUrl, Field, field_validator
 from pocketbase import PocketBase
 from datetime import datetime, timezone
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -20,8 +20,6 @@ class PBModel(BaseModel):
     """
 
     id: str = Field(default="")
-    created: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         str_strip_whitespace = True
@@ -36,7 +34,7 @@ class PBModel(BaseModel):
         cls._pb_client = client
 
     @classmethod
-    def collection(cls):
+    def get_collection(cls):
         """
         Returns the collection instance for the model.
         """
@@ -45,6 +43,46 @@ class PBModel(BaseModel):
                 "PocketBase client not bound. Call PBModel.bind_client() first."
             )
         return cls._pb_client.collection(cls.Meta.collection_name)
+
+    @classmethod
+    def create(cls, *args, **kwargs):
+        """Create a new record in the collection."""
+        return cls.get_collection().create(*args, **kwargs)
+
+    @classmethod
+    def update(cls, *args, **kwargs):
+        """Update an existing record in the collection."""
+        return cls.get_collection().update(*args, **kwargs)
+
+    @classmethod
+    def delete(cls, *args, **kwargs):
+        """Delete a record from the collection."""
+        return cls.get_collection().delete(*args, **kwargs)
+
+    @classmethod
+    def get_one(cls, *args, **kwargs) -> T:
+        """Get a single record from the collection and convert to model instance."""
+        record = cls.get_collection().get_one(*args, **kwargs)
+        return cls.model_validate(record.__dict__)
+
+    @classmethod
+    def get_list(cls, *args, **kwargs) -> tuple[List[T], int]:
+        """Get a list of records from the collection and convert to model instances."""
+        result = cls.get_collection().get_list(*args, **kwargs)
+        items = [cls.model_validate(record.__dict__) for record in result.items]
+        return items, result.total_items
+
+    @classmethod
+    def get_full_list(cls, *args, **kwargs) -> List[T]:
+        """Get a full list of records and convert to model instances."""
+        records = cls.get_collection().get_full_list(*args, **kwargs)
+        return [cls.model_validate(record.__dict__) for record in records]
+
+    @classmethod
+    def get_first_list_item(cls, *args, **kwargs) -> T:
+        """Get the first matching record and convert to model instance."""
+        record = cls.get_collection().get_first_list_item(*args, **kwargs)
+        return cls.model_validate(record.__dict__)
 
     @classmethod
     def sync_collection(cls):
@@ -153,7 +191,7 @@ class PBModel(BaseModel):
         logger.info(f"Generating fields for {cls.__name__}")
 
         for name, field in cls.__annotations__.items():
-            if name in ["id", "created", "updated"]:  # Skip base model fields
+            if name == "id":  # Skip base model fields
                 continue
 
             field_def = {"name": name, "type": cls._get_field_type(field)}
@@ -284,11 +322,11 @@ class PBModel(BaseModel):
         If not, it will create a new record.
         Returns the updated model instance.
         """
-        client = self.collection().client
+        client = self.get_collection().client
         collection_name = self.Meta.collection_name
 
         # Prepare data for saving - use model_dump with mode='json' to handle special types
-        data = self.model_dump(exclude={"created", "updated"}, mode="json")
+        data = self.model_dump(mode="json")
 
         if hasattr(self, "id") and self.id:
             # Update existing record
@@ -299,18 +337,6 @@ class PBModel(BaseModel):
             result = client.collection(collection_name).create(data)
             self.id = result.id
             logger.info(f"Created new record with ID: {self.id}")
-
-        # Update instance with response data
-        self.created = (
-            datetime.fromisoformat(result.created)
-            if result.created and result.created.strip()
-            else datetime.now(timezone.utc)
-        )
-        self.updated = (
-            datetime.fromisoformat(result.updated)
-            if result.updated and result.updated.strip()
-            else datetime.now(timezone.utc)
-        )
 
         return self
 
@@ -388,3 +414,8 @@ if __name__ == "__main__":
     # Create the record in the database using the new save() method
     example.save()
     print(f"Created record with ID: {example.id}")
+
+    example_list = Example.get_full_list()
+    print(f"Example list: {example_list}")
+    example_ = Example.get_one(id=example.id)
+    print(f"Example: {example_}")
