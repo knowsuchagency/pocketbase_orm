@@ -1,0 +1,10 @@
+[project]
+name = "pocketbase-orm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pocketbase>=0.14.0",
+    "pydantic[email]>=2.10.6",
+]
