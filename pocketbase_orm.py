@@ -112,13 +112,11 @@ class PBModel(BaseModel):
         Create the collection schema in PocketBase.
         """
         fields = cls._generate_fields()
-        indexes = cls._generate_indexes()
 
         collection_payload = {
             "name": cls.Meta.collection_name,
             "type": "base",
             "fields": fields,
-            "indexes": indexes,
         }
 
         logger.debug(f"Creating collection with payload: {collection_payload}")
@@ -165,15 +163,12 @@ class PBModel(BaseModel):
             if new_field["name"] not in current_fields:
                 final_fields.append(new_field)
 
-        indexes = cls._generate_indexes()
-
         try:
             cls._pb_client.collections.update(
                 existing_collection.id,
                 {
                     "name": existing_collection.name,
                     "schema": final_fields,
-                    "indexes": indexes,
                 },
             )
             logger.debug(f"Collection {cls.Meta.collection_name} updated successfully.")
@@ -283,27 +278,6 @@ class PBModel(BaseModel):
         logger.debug(f"Final fields configuration: {fields}")
         return fields
 
-    @classmethod
-    def _generate_indexes(cls) -> List[str]:
-        """
-        Generate indexes from the Meta class if defined.
-        """
-        indexes = []
-        if hasattr(cls.Meta, "indexes"):
-            for index in cls.Meta.indexes:
-                if isinstance(index, tuple):
-                    index_fields = ", ".join(index)
-                    indexes.append(
-                        f"CREATE INDEX idx_{cls.Meta.collection_name}_{index_fields} ON {cls.Meta.collection_name} ({index_fields})"
-                    )
-                elif isinstance(index, dict):
-                    index_fields = ", ".join(index["fields"])
-                    unique = "UNIQUE " if index.get("unique", False) else ""
-                    indexes.append(
-                        f"CREATE {unique}INDEX idx_{cls.Meta.collection_name}_{index_fields} ON {cls.Meta.collection_name} ({index_fields})"
-                    )
-        return indexes
-
     @staticmethod
     def _get_field_type(pydantic_field: Any) -> str:
         """
@@ -392,13 +366,6 @@ class Example(PBModel):
 
     class Meta:
         collection_name = "examples"
-        # indexes = [
-        #     ("text_field",),  # index on text_field
-        #     (
-        #         "number_field",
-        #         "is_active",
-        #     ),  # composite index on number_field + is_active
-        # ]
 
     @field_validator("related_model", mode="before")
     def set_related_model(cls, v):
@@ -416,7 +383,7 @@ if __name__ == "__main__":
     username = os.getenv("POCKETBASE_USERNAME")
     password = os.getenv("POCKETBASE_PASSWORD")
     # Initialize PocketBase client and bind it to the ORM
-    client = PocketBase("https://pocketbase.knowsuchagency.com")
+    client = PocketBase(os.getenv("POCKETBASE_URL"))
     client.admins.auth_with_password(username, password)  # Auth as admin
     PBModel.bind_client(client)
 
