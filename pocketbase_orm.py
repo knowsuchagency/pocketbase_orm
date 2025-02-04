@@ -1,5 +1,5 @@
 import logging
-from typing import List, TypeVar, Dict, Any, Union, BinaryIO
+from typing import List, TypeVar, Dict, Any, Union
 from pydantic import BaseModel, EmailStr, AnyUrl, Field, field_validator
 from pocketbase import PocketBase
 from pocketbase.client import FileUpload
@@ -82,14 +82,12 @@ class PBModel(BaseModel):
             if field_name not in processed_data:
                 continue
 
-            # Check if field is a file type (either directly or in a Union)
+            # Check if field is a file type (in a Union)
             is_file_field = False
             if hasattr(field_type, "__origin__") and field_type.__origin__ is Union:
-                is_file_field = (
-                    FileUpload in field_type.__args__ or BinaryIO in field_type.__args__
-                )
+                is_file_field = FileUpload in field_type.__args__
             else:
-                is_file_field = field_type in (FileUpload, BinaryIO)
+                is_file_field = field_type is FileUpload
 
             # Handle file fields - convert empty strings to None
             if is_file_field and processed_data[field_name] == "":
@@ -343,10 +341,7 @@ class PBModel(BaseModel):
         # Handle Union types (typically used for relations)
         if hasattr(pydantic_field, "__origin__") and pydantic_field.__origin__ is Union:
             # Check if FileUpload is in the Union types
-            if (
-                FileUpload in pydantic_field.__args__
-                or BinaryIO in pydantic_field.__args__
-            ):
+            if FileUpload in pydantic_field.__args__:
                 return "file"
             # If one of the types is str, it's likely a relation field
             if str in pydantic_field.__args__:
@@ -354,7 +349,7 @@ class PBModel(BaseModel):
             # For other Union types, default to json
             return "json"
 
-        if pydantic_field == FileUpload or pydantic_field == BinaryIO:
+        if pydantic_field == FileUpload:
             return "file"
 
         if hasattr(pydantic_field, "__origin__") and pydantic_field.__origin__ is list:
@@ -403,12 +398,9 @@ class PBModel(BaseModel):
             if field_value is None:
                 continue
 
-            if isinstance(field_value, (BinaryIO, FileUpload)):
+            if isinstance(field_value, FileUpload):
                 # Keep FileUpload objects as-is
                 data[field_name] = field_value
-            elif hasattr(field_value, "read") and callable(field_value.read):
-                # Convert file-like objects to FileUpload
-                data[field_name] = FileUpload((field_name, field_value))
             else:
                 # For non-file fields, use model_dump to handle serialization
                 try:
@@ -468,8 +460,8 @@ class Example(PBModel):
     def validate_image(cls, v):
         if isinstance(v, str):
             return v  # Keep string URLs as-is
-        if isinstance(v, (BinaryIO, FileUpload)):
-            return v  # Keep file objects as-is
+        if isinstance(v, FileUpload):
+            return v  # Keep FileUpload objects as-is
         return v  # In case it's None
 
 
