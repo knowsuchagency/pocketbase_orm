@@ -1,13 +1,12 @@
 import logging
-from typing import List, TypeVar, Dict, Any, Union
+from typing import List, Optional, TypeVar, Dict, Any, Union
 from pydantic import BaseModel, EmailStr, AnyUrl, Field, field_validator
 from pocketbase import PocketBase
 from datetime import datetime, timezone
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="PBModel")
@@ -20,6 +19,8 @@ class PBModel(BaseModel):
     """
 
     id: str = Field(default="")
+    created: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         str_strip_whitespace = True
@@ -93,11 +94,11 @@ class PBModel(BaseModel):
         collection_name = cls.Meta.collection_name
         try:
             existing_collection = cls._pb_client.collections.get_one(collection_name)
-            logger.info(f"Collection {collection_name} exists. Updating schema...")
+            logger.debug(f"Collection {collection_name} exists. Updating schema...")
             cls._update_collection(existing_collection)
         except Exception as e:
             if "404" in str(e):  # Only create if collection doesn't exist
-                logger.info(
+                logger.debug(
                     f"Collection {collection_name} does not exist. Creating collection..."
                 )
                 cls._create_collection()
@@ -120,11 +121,11 @@ class PBModel(BaseModel):
             "indexes": indexes,
         }
 
-        logger.info(f"Creating collection with payload: {collection_payload}")
+        logger.debug(f"Creating collection with payload: {collection_payload}")
 
         try:
             response = cls._pb_client.collections.create(collection_payload)
-            logger.info(f"Collection {cls.Meta.collection_name} created successfully.")
+            logger.debug(f"Collection {cls.Meta.collection_name} created successfully.")
             return response
         except Exception as e:
             logger.error(f"Error creating collection: {e}")
@@ -175,7 +176,7 @@ class PBModel(BaseModel):
                     "indexes": indexes,
                 },
             )
-            logger.info(f"Collection {cls.Meta.collection_name} updated successfully.")
+            logger.debug(f"Collection {cls.Meta.collection_name} updated successfully.")
         except Exception as e:
             logger.error(f"Error updating collection: {e}")
             raise
@@ -188,14 +189,38 @@ class PBModel(BaseModel):
         fields = []
         model_fields = cls.model_fields
 
-        logger.info(f"Generating fields for {cls.__name__}")
+        logger.debug(f"Generating fields for {cls.__name__}")
+
+        # Add fields for created and updated
+        fields.extend(
+            [
+                {
+                    "hidden": False,
+                    "name": "created",
+                    "onCreate": True,
+                    "onUpdate": False,
+                    "presentable": False,
+                    "system": True,
+                    "type": "autodate",
+                },
+                {
+                    "hidden": False,
+                    "name": "updated",
+                    "onCreate": True,
+                    "onUpdate": True,
+                    "presentable": False,
+                    "system": True,
+                    "type": "autodate",
+                },
+            ]
+        )
 
         for name, field in cls.__annotations__.items():
-            if name == "id":  # Skip base model fields
+            if name in ["id", "created", "updated"]:  # Skip base model fields
                 continue
 
             field_def = {"name": name, "type": cls._get_field_type(field)}
-            logger.info(f"Processing field {name} with type {field_def['type']}")
+            logger.debug(f"Processing field {name} with type {field_def['type']}")
 
             # Get field info from Pydantic model
             field_info = model_fields[name]
@@ -203,7 +228,7 @@ class PBModel(BaseModel):
 
             # Add additional configuration for relation fields
             if field_def["type"] == "relation":
-                logger.info(f"Configuring relation field {name}")
+                logger.debug(f"Configuring relation field {name}")
                 # Find the related model in Union types
                 related_model = None
                 if hasattr(field, "__origin__") and field.__origin__ is Union:
@@ -214,17 +239,17 @@ class PBModel(BaseModel):
                         if arg == str:
                             continue
                         related_model = arg
-                        logger.info(f"Found related model for {name}: {related_model}")
+                        logger.debug(f"Found related model for {name}: {related_model}")
 
                 if related_model and hasattr(related_model, "Meta"):
                     try:
-                        logger.info(
+                        logger.debug(
                             f"Looking up collection for {related_model.Meta.collection_name}"
                         )
                         collection = cls._pb_client.collections.get_one(
                             related_model.Meta.collection_name
                         )
-                        logger.info(f"Found collection for {name}: {collection.id}")
+                        logger.debug(f"Found collection for {name}: {collection.id}")
 
                         # Match the exact RelationField structure from Go
                         field_def.update(
@@ -241,7 +266,7 @@ class PBModel(BaseModel):
                             }
                         )
 
-                        logger.info(f"Field definition for {name}: {field_def}")
+                        logger.debug(f"Field definition for {name}: {field_def}")
                     except Exception as e:
                         logger.error(
                             f"Error getting collection ID for {related_model.Meta.collection_name}: {e}",
@@ -255,7 +280,7 @@ class PBModel(BaseModel):
             fields.append(field_def)
             logger.debug(f"Added field definition: {field_def}")
 
-        logger.info(f"Final fields configuration: {fields}")
+        logger.debug(f"Final fields configuration: {fields}")
         return fields
 
     @classmethod
@@ -326,17 +351,21 @@ class PBModel(BaseModel):
         collection_name = self.Meta.collection_name
 
         # Prepare data for saving - use model_dump with mode='json' to handle special types
-        data = self.model_dump(mode="json")
+        data = self.model_dump(exclude={"created", "updated"}, mode="json")
 
         if hasattr(self, "id") and self.id:
             # Update existing record
             result = client.collection(collection_name).update(self.id, data)
-            logger.info(f"Updated record with ID: {self.id}")
+            logger.debug(f"Updated record with ID: {self.id}")
         else:
             # Create new record
             result = client.collection(collection_name).create(data)
             self.id = result.id
-            logger.info(f"Created new record with ID: {self.id}")
+            logger.debug(f"Created new record with ID: {self.id}")
+
+        # Update instance with response data from PocketBase
+        self.created = result.created
+        self.updated = result.updated
 
         return self
 
@@ -352,11 +381,11 @@ class Example(PBModel):
     text_field: str
     number_field: int
     is_active: bool
-    email_field: EmailStr
     url_field: AnyUrl
     created_at: datetime
     options: List[str]
     file_field: str
+    email_field: Optional[EmailStr] = None
     related_model: Union[RelatedModel, str] = Field(
         ..., description="Related model reference"
     )
