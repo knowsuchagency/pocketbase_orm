@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, TypeVar, Dict, Any, Union
+from typing import List, TypeVar, Dict, Any, Union
 from pydantic import BaseModel, EmailStr, AnyUrl, Field, field_validator
 from pocketbase import PocketBase
 from datetime import datetime, timezone
@@ -386,8 +386,7 @@ class Example(PBModel):
     url_field: AnyUrl
     created_at: datetime
     options: List[str]
-    file_field: str | None = None
-    email_field: Optional[EmailStr] = None
+    email_field: EmailStr | None = None
     related_model: Union[RelatedModel, str] = Field(
         ..., description="Related model reference"
     )
@@ -428,7 +427,6 @@ if __name__ == "__main__":
         url_field="http://example.com",
         created_at=datetime.now(timezone.utc),
         options=["option1", "option2"],
-        file_field="file1.txt",
         related_model=related_model.id,  # Now using the id from the saved related_model
     )
 
