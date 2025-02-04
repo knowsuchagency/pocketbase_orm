@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr, AnyUrl, Field, field_validator
 from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from datetime import datetime, timezone
+import httpx
 
 __version__ = "0.3.0"
 
@@ -425,6 +426,47 @@ class PBModel(BaseModel):
 
         return self
 
+    def get_file_contents(self, field: str) -> bytes:
+        """
+        Get the contents of a file field using httpx.
+
+        Args:
+            field: Name of the file field
+
+        Returns:
+            bytes: The file contents
+
+        Raises:
+            ValueError: If the field doesn't exist or isn't a file field
+            RuntimeError: If there's an error fetching the file
+        """
+        collection = self.get_collection()
+        client = collection.client
+
+        # Get the actual filename from the field
+        filename = getattr(self, field)
+        if not filename:
+            raise ValueError(f"No file exists in field '{field}'")
+
+        # Get collection name from Meta if it exists, otherwise pluralize class name
+        collection_name = (
+            getattr(self.__class__.Meta, "collection_name", None)
+            if hasattr(self.__class__, "Meta")
+            else None
+        )
+        if collection_name is None:
+            collection_name = _pluralize(self.__class__.__name__.lower())
+
+        # Construct the PocketBase file URL
+        file_url = f"{client.base_url}/api/files/{collection_name}/{self.id}/{filename}"
+
+        try:
+            response = httpx.get(file_url)
+            response.raise_for_status()
+            return response.content
+        except Exception as e:
+            raise RuntimeError(f"Error fetching file contents: {e}")
+
 
 class RelatedModel(PBModel):
     name: str
@@ -444,9 +486,7 @@ class Example(PBModel):
     related_model: Union[RelatedModel, str] = Field(
         ..., description="Related model reference"
     )
-    image: FileUpload | str = Field(
-        default=None, description="Image file upload"
-    )
+    image: FileUpload | str = Field(default=None, description="Image file upload")
 
     @field_validator("related_model", mode="before")
     def set_related_model(cls, v):
@@ -507,3 +547,4 @@ if __name__ == "__main__":
         filter=f"email_field = '{example.email_field}'"
     )
     print(f"Example 2: {example_2}")
+    image_bytes = example_2.get_file_contents("image")
