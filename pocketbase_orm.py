@@ -358,7 +358,7 @@ class Example(PBModel):
     url_field: AnyUrl
     created_at: datetime
     options: List[str]
-    file_field: str
+    file_field: str | None = None
     email_field: Optional[EmailStr] = None
     related_model: Union[RelatedModel, str] = Field(
         ..., description="Related model reference"
