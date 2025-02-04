@@ -1,10 +1,15 @@
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = ["flit_core >=3.2,<4"]
+
 [project]
-name = "pocketbase-orm"
-version = "0.1.0"
+dependencies = [
+  "pocketbase>=0.14.0",
+  "pydantic[email]>=2.10.6",
+]
 description = "Add your description here"
+license = {file = "LICENSE"}
+name = "pocketbase-orm"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-    "pocketbase>=0.14.0",
-    "pydantic[email]>=2.10.6",
-]
+dynamic = ["version"]

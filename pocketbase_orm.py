@@ -4,6 +4,8 @@ from pydantic import BaseModel, EmailStr, AnyUrl, Field, field_validator
 from pocketbase import PocketBase
 from datetime import datetime, timezone
 
+__version__ = "0.1.0"
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
