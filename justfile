@@ -4,5 +4,8 @@ build:
 clear:
     rm -rf dist/*
 
-publish: clear build
+publish: test clear build
     uv publish
+
+test:
+    uv run pytest tests/

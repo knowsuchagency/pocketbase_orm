@@ -13,3 +13,8 @@ name = "pocketbase-orm"
 readme = "README.md"
 requires-python = ">=3.11"
 dynamic = ["version"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+]

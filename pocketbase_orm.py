@@ -6,7 +6,7 @@ from pocketbase.client import FileUpload
 from datetime import datetime, timezone
 import httpx
 
-__version__ = "0.3.1"
+__version__ = "0.4.1"
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -425,18 +425,29 @@ class PBModel(BaseModel):
             ValueError: If the field doesn't exist or isn't a file field
             RuntimeError: If there's an error fetching the file
         """
-        collection = self.get_collection()
-        client = collection.client
-
-        # Get the actual filename from the field
-        filename = getattr(self, field)
-        if not filename:
+        # Get the field value
+        field_value = getattr(self, field)
+        if not field_value:
             raise ValueError(f"No file exists in field '{field}'")
 
+        # If it's a FileUpload object, return the file contents directly
+        if isinstance(field_value, FileUpload):
+            # Get the file object from the FileUpload
+            # FileUpload.files is a tuple where the second element is the file
+            _, file_obj = field_value.files[0]
+            # Seek to start in case file was already read
+            file_obj.seek(0)
+            return file_obj.read()
+
+        # Otherwise, treat it as a filename and fetch from PocketBase
+        collection = self.get_collection()
+        client = collection.client
         collection_name = self.get_collection_name()
 
         # Construct the PocketBase file URL
-        file_url = f"{client.base_url}/api/files/{collection_name}/{self.id}/{filename}"
+        file_url = (
+            f"{client.base_url}/api/files/{collection_name}/{self.id}/{field_value}"
+        )
 
         try:
             response = httpx.get(file_url)
@@ -481,48 +492,3 @@ class Example(PBModel):
         if isinstance(v, FileUpload):
             return v  # Keep FileUpload objects as-is
         return v  # In case it's None
-
-
-# Example usage:
-if __name__ == "__main__":
-    import os
-
-    username = os.getenv("POCKETBASE_USERNAME")
-    password = os.getenv("POCKETBASE_PASSWORD")
-    # Initialize PocketBase client and bind it to the ORM
-    client = PocketBase(os.getenv("POCKETBASE_URL"))
-    client.admins.auth_with_password(username, password)  # Auth as admin
-    PBModel.bind_client(client)
-
-    # Sync collections
-    RelatedModel.sync_collection()  # Sync the RelatedModel collection schema
-    Example.sync_collection()  # Sync the Example collection schema
-
-    related_model = RelatedModel(name="Related Model")
-    related_model.save()  # Now using the save() method
-
-    # Create a new record with file upload
-    with open("static/image.png", "rb") as f:
-        example = Example(
-            text_field="Test with image",
-            number_field=123,
-            is_active=True,
-            email_field="test@example.com",
-            url_field="http://example.com",
-            created_at=datetime.now(timezone.utc),
-            options=["option1", "option2"],
-            related_model=related_model.id,
-            image=FileUpload(("image.png", f)),  # Add file upload
-        )
-        example.save()
-
-    example_list = Example.get_full_list()
-    print(f"Example list: {example_list}")
-    example_ = Example.get_one(example.id)
-    print(f"Example: {example_}")
-
-    example_2 = Example.get_first_list_item(
-        filter=f"email_field = '{example.email_field}'"
-    )
-    print(f"Example 2: {example_2}")
-    image_bytes = example_2.get_file_contents("image")

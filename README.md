@@ -4,10 +4,10 @@ A Python ORM (Object-Relational Mapper) for PocketBase that provides Pydantic mo
 
 ## Features
 
-🚀 Pydantic model integration for data validation and serialization
-🔄 Automatic schema synchronization with PocketBase collections
-📦 Support for most PocketBase field types including relations and file uploads
-🛠️ Simple and intuitive API for CRUD operations
+- 🚀 Pydantic model integration for data validation and serialization
+- 🔄 Automatic schema synchronization with PocketBase collections
+- 📦 Support for most PocketBase field types including relations and file uploads
+- 🛠️ Simple and intuitive API for CRUD operations
 
 ## Installation
 
