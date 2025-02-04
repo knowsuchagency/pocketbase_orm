@@ -67,11 +67,11 @@ class PBModel(BaseModel):
         return cls.model_validate(record.__dict__)
 
     @classmethod
-    def get_list(cls, *args, **kwargs) -> tuple[List[T], int]:
+    def get_list(cls, *args, **kwargs) -> List[T]:
         """Get a list of records from the collection and convert to model instances."""
         result = cls.get_collection().get_list(*args, **kwargs)
         items = [cls.model_validate(record.__dict__) for record in result.items]
-        return items, result.total_items
+        return items
 
     @classmethod
     def get_full_list(cls, *args, **kwargs) -> List[T]:
