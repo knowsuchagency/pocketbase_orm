@@ -12,6 +12,16 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound="PBModel")
 
 
+def _pluralize(singular: str) -> str:
+    """Simple English pluralization."""
+    if singular.endswith("y"):
+        return singular[:-1] + "ies"
+    elif singular.endswith(("s", "sh", "ch", "x", "z")):
+        return singular + "es"
+    else:
+        return singular + "s"
+
+
 class PBModel(BaseModel):
     """
     Base model class for all PocketBase models.
@@ -43,7 +53,15 @@ class PBModel(BaseModel):
             raise RuntimeError(
                 "PocketBase client not bound. Call PBModel.bind_client() first."
             )
-        return cls._pb_client.collection(cls.Meta.collection_name)
+
+        # Get collection name from Meta if it exists, otherwise pluralize class name
+        collection_name = (
+            getattr(cls.Meta, "collection_name", None) if hasattr(cls, "Meta") else None
+        )
+        if collection_name is None:
+            collection_name = _pluralize(cls.__name__.lower())
+
+        return cls._pb_client.collection(collection_name)
 
     @classmethod
     def delete(cls, *args, **kwargs):
@@ -80,8 +98,13 @@ class PBModel(BaseModel):
         """
         Sync the collection schema with PocketBase. Will create or update the collection.
         """
-        # Check if collection already exists
-        collection_name = cls.Meta.collection_name
+        # Get collection name from Meta if it exists, otherwise pluralize class name
+        collection_name = (
+            getattr(cls.Meta, "collection_name", None) if hasattr(cls, "Meta") else None
+        )
+        if collection_name is None:
+            collection_name = _pluralize(cls.__name__.lower())
+
         try:
             existing_collection = cls._pb_client.collections.get_one(collection_name)
             logger.debug(f"Collection {collection_name} exists. Updating schema...")
@@ -103,8 +126,15 @@ class PBModel(BaseModel):
         """
         fields = cls._generate_fields()
 
+        # Get collection name from Meta if it exists, otherwise pluralize class name
+        collection_name = (
+            getattr(cls.Meta, "collection_name", None) if hasattr(cls, "Meta") else None
+        )
+        if collection_name is None:
+            collection_name = _pluralize(cls.__name__.lower())
+
         collection_payload = {
-            "name": cls.Meta.collection_name,
+            "name": collection_name,
             "type": "base",
             "fields": fields,
         }
@@ -113,7 +143,7 @@ class PBModel(BaseModel):
 
         try:
             response = cls._pb_client.collections.create(collection_payload)
-            logger.debug(f"Collection {cls.Meta.collection_name} created successfully.")
+            logger.debug(f"Collection {collection_name} created successfully.")
             return response
         except Exception as e:
             logger.error(f"Error creating collection: {e}")
@@ -161,7 +191,7 @@ class PBModel(BaseModel):
                     "schema": final_fields,
                 },
             )
-            logger.debug(f"Collection {cls.Meta.collection_name} updated successfully.")
+            logger.debug(f"Collection {existing_collection.name} updated successfully.")
         except Exception as e:
             logger.error(f"Error updating collection: {e}")
             raise
@@ -312,7 +342,15 @@ class PBModel(BaseModel):
         Returns the updated model instance.
         """
         client = self.get_collection().client
-        collection_name = self.Meta.collection_name
+
+        # Get collection name from Meta if it exists, otherwise pluralize class name
+        collection_name = (
+            getattr(self.__class__.Meta, "collection_name", None)
+            if hasattr(self.__class__, "Meta")
+            else None
+        )
+        if collection_name is None:
+            collection_name = _pluralize(self.__class__.__name__.lower())
 
         # Prepare data for saving - use model_dump with mode='json' to handle special types
         data = self.model_dump(exclude={"created", "updated"}, mode="json")
@@ -353,9 +391,6 @@ class Example(PBModel):
     related_model: Union[RelatedModel, str] = Field(
         ..., description="Related model reference"
     )
-
-    class Meta:
-        collection_name = "examples"
 
     @field_validator("related_model", mode="before")
     def set_related_model(cls, v):
@@ -406,5 +441,7 @@ if __name__ == "__main__":
     example_ = Example.get_one(example.id)
     print(f"Example: {example_}")
 
-    example_2 = Example.get_first_list_item(filter=f"email_field = '{example.email_field}'")
+    example_2 = Example.get_first_list_item(
+        filter=f"email_field = '{example.email_field}'"
+    )
     print(f"Example 2: {example_2}")
