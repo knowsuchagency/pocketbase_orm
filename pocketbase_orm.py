@@ -444,7 +444,7 @@ class Example(PBModel):
     related_model: Union[RelatedModel, str] = Field(
         ..., description="Related model reference"
     )
-    image: Union[FileUpload, str, None] = Field(
+    image: FileUpload | str = Field(
         default=None, description="Image file upload"
     )
 
