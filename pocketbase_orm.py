@@ -1,7 +1,8 @@
 import logging
-from typing import List, TypeVar, Dict, Any, Union
+from typing import List, TypeVar, Dict, Any, Union, BinaryIO
 from pydantic import BaseModel, EmailStr, AnyUrl, Field, field_validator
 from pocketbase import PocketBase
+from pocketbase.client import FileUpload
 from datetime import datetime, timezone
 
 __version__ = "0.3.0"
@@ -69,29 +70,65 @@ class PBModel(BaseModel):
         return cls.get_collection().delete(*args, **kwargs)
 
     @classmethod
+    def _process_record_data(cls, record_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process record data before model validation.
+        Handles special cases like file fields.
+        """
+        processed_data = record_data.copy()
+
+        # Get field types from annotations
+        for field_name, field_type in cls.__annotations__.items():
+            if field_name not in processed_data:
+                continue
+
+            # Check if field is a file type (either directly or in a Union)
+            is_file_field = False
+            if hasattr(field_type, "__origin__") and field_type.__origin__ is Union:
+                is_file_field = (
+                    FileUpload in field_type.__args__ or BinaryIO in field_type.__args__
+                )
+            else:
+                is_file_field = field_type in (FileUpload, BinaryIO)
+
+            # Handle file fields - convert empty strings to None
+            if is_file_field and processed_data[field_name] == "":
+                processed_data[field_name] = None
+
+        return processed_data
+
+    @classmethod
     def get_one(cls, id: str, **kwargs) -> T:
         """Get a single record from the collection and convert to model instance."""
         record = cls.get_collection().get_one(id, **kwargs)
-        return cls.model_validate(record.__dict__)
+        processed_data = cls._process_record_data(record.__dict__)
+        return cls.model_validate(processed_data)
 
     @classmethod
     def get_list(cls, *args, **kwargs) -> List[T]:
         """Get a list of records from the collection and convert to model instances."""
         result = cls.get_collection().get_list(*args, **kwargs)
-        items = [cls.model_validate(record.__dict__) for record in result.items]
+        items = [
+            cls.model_validate(cls._process_record_data(record.__dict__))
+            for record in result.items
+        ]
         return items
 
     @classmethod
     def get_full_list(cls, *args, **kwargs) -> List[T]:
         """Get a full list of records and convert to model instances."""
         records = cls.get_collection().get_full_list(*args, **kwargs)
-        return [cls.model_validate(record.__dict__) for record in records]
+        return [
+            cls.model_validate(cls._process_record_data(record.__dict__))
+            for record in records
+        ]
 
     @classmethod
     def get_first_list_item(cls, *args, **kwargs) -> T:
         """Get the first matching record and convert to model instance."""
         record = cls.get_collection().get_first_list_item(*args, **kwargs)
-        return cls.model_validate(record.__dict__)
+        processed_data = cls._process_record_data(record.__dict__)
+        return cls.model_validate(processed_data)
 
     @classmethod
     def sync_collection(cls):
@@ -305,11 +342,20 @@ class PBModel(BaseModel):
         """
         # Handle Union types (typically used for relations)
         if hasattr(pydantic_field, "__origin__") and pydantic_field.__origin__ is Union:
+            # Check if FileUpload is in the Union types
+            if (
+                FileUpload in pydantic_field.__args__
+                or BinaryIO in pydantic_field.__args__
+            ):
+                return "file"
             # If one of the types is str, it's likely a relation field
             if str in pydantic_field.__args__:
                 return "relation"
             # For other Union types, default to json
             return "json"
+
+        if pydantic_field == FileUpload or pydantic_field == BinaryIO:
+            return "file"
 
         if hasattr(pydantic_field, "__origin__") and pydantic_field.__origin__ is list:
             return "json"
@@ -337,13 +383,8 @@ class PBModel(BaseModel):
     def save(self) -> T:
         """
         Save the model instance to PocketBase.
-        If the model has an ID, it will update the existing record.
-        If not, it will create a new record.
-        Returns the updated model instance.
         """
         client = self.get_collection().client
-
-        # Get collection name from Meta if it exists, otherwise pluralize class name
         collection_name = (
             getattr(self.__class__.Meta, "collection_name", None)
             if hasattr(self.__class__, "Meta")
@@ -352,15 +393,36 @@ class PBModel(BaseModel):
         if collection_name is None:
             collection_name = _pluralize(self.__class__.__name__.lower())
 
-        # Prepare data for saving - use model_dump with mode='json' to handle special types
-        data = self.model_dump(exclude={"created", "updated"}, mode="json")
+        # Prepare data for saving - handle file uploads specially
+        data = {}
+        for field_name, field_info in self.model_fields.items():
+            if field_name in ("created", "updated"):
+                continue
+
+            field_value = getattr(self, field_name)
+            if field_value is None:
+                continue
+
+            if isinstance(field_value, (BinaryIO, FileUpload)):
+                # Keep FileUpload objects as-is
+                data[field_name] = field_value
+            elif hasattr(field_value, "read") and callable(field_value.read):
+                # Convert file-like objects to FileUpload
+                data[field_name] = FileUpload((field_name, field_value))
+            else:
+                # For non-file fields, use model_dump to handle serialization
+                try:
+                    data[field_name] = self.model_dump(
+                        include={field_name}, mode="json"
+                    )[field_name]
+                except Exception as e:
+                    logger.warning(f"Error serializing field {field_name}: {e}")
+                    data[field_name] = field_value
 
         if hasattr(self, "id") and self.id:
-            # Update existing record
             result = client.collection(collection_name).update(self.id, data)
             logger.debug(f"Updated record with ID: {self.id}")
         else:
-            # Create new record
             result = client.collection(collection_name).create(data)
             self.id = result.id
             logger.debug(f"Created new record with ID: {self.id}")
@@ -390,13 +452,24 @@ class Example(PBModel):
     related_model: Union[RelatedModel, str] = Field(
         ..., description="Related model reference"
     )
+    image: Union[FileUpload, str, None] = Field(
+        default=None, description="Image file upload"
+    )
 
     @field_validator("related_model", mode="before")
     def set_related_model(cls, v):
         if isinstance(v, str):
-            return v  # If it's already an ID, keep it.
+            return v  # If it's already an ID, keep it
         if isinstance(v, PBModel):
-            return v.id  # If it's a model instance, return its ID.
+            return v.id  # If it's a model instance, return its ID
+        return v  # In case it's None
+
+    @field_validator("image", mode="before")
+    def validate_image(cls, v):
+        if isinstance(v, str):
+            return v  # Keep string URLs as-is
+        if isinstance(v, (BinaryIO, FileUpload)):
+            return v  # Keep file objects as-is
         return v  # In case it's None
 
 
@@ -418,21 +491,20 @@ if __name__ == "__main__":
     related_model = RelatedModel(name="Related Model")
     related_model.save()  # Now using the save() method
 
-    # Create a new record
-    example = Example(
-        text_field="Test",
-        number_field=123,
-        is_active=True,
-        email_field="test@example.com",
-        url_field="http://example.com",
-        created_at=datetime.now(timezone.utc),
-        options=["option1", "option2"],
-        related_model=related_model.id,  # Now using the id from the saved related_model
-    )
-
-    # Create the record in the database using the new save() method
-    example.save()
-    print(f"Created record with ID: {example.id}")
+    # Create a new record with file upload
+    with open("static/image.png", "rb") as f:
+        example = Example(
+            text_field="Test with image",
+            number_field=123,
+            is_active=True,
+            email_field="test@example.com",
+            url_field="http://example.com",
+            created_at=datetime.now(timezone.utc),
+            options=["option1", "option2"],
+            related_model=related_model.id,
+            image=FileUpload(("image.png", f)),  # Add file upload
+        )
+        example.save()
 
     example_list = Example.get_full_list()
     print(f"Example list: {example_list}")
