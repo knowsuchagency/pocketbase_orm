@@ -6,7 +6,7 @@ from pocketbase.client import FileUpload
 from datetime import datetime, timezone
 import httpx
 
-__version__ = "0.6.2"
+__version__ = "0.7.0"
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -242,7 +242,7 @@ class PBModel(BaseModel):
                     "onCreate": True,
                     "onUpdate": False,
                     "presentable": False,
-                    "system": True,
+                    "system": False,
                     "type": "autodate",
                 },
                 {
@@ -251,7 +251,7 @@ class PBModel(BaseModel):
                     "onCreate": True,
                     "onUpdate": True,
                     "presentable": False,
-                    "system": True,
+                    "system": False,
                     "type": "autodate",
                 },
             ]
@@ -455,3 +455,33 @@ class PBModel(BaseModel):
             return response.content
         except Exception as e:
             raise RuntimeError(f"Error fetching file contents: {e}")
+
+
+class User(PBModel):
+    """Model class for PocketBase's built-in users collection."""
+    
+    email: EmailStr
+    id: str | None = None
+    password: str | None = None  # Only used when creating/updating
+    passwordConfirm: str | None = None  # Required when creating/updating password
+    emailVisibility: bool = False
+    verified: bool = False
+    name: str | None = None
+    avatar: Union[FileUpload, str, None] = None
+
+    class Meta:
+        collection_name = "users"
+
+    @classmethod
+    def _create_collection(cls):
+        """Override to prevent creation of system collection."""
+        raise RuntimeError(
+            "Cannot create or modify the users collection as it is a system collection."
+        )
+
+    @classmethod
+    def _update_collection(cls, existing_collection):
+        """Override to prevent modification of system collection."""
+        raise RuntimeError(
+            "Cannot create or modify the users collection as it is a system collection."
+        )

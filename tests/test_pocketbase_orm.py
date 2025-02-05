@@ -5,7 +5,7 @@ import pytest
 from datetime import datetime, timezone
 from pocketbase import PocketBase
 from pocketbase.client import FileUpload
-from pocketbase_orm import PBModel
+from pocketbase_orm import PBModel, User
 
 
 class RelatedModel(PBModel):
@@ -223,3 +223,90 @@ def test_get_list_pagination(setup_models, related_model):
                 Example.delete(example.id)
             except Exception:
                 pass
+
+
+def test_user_collection_operations(setup_models):
+    """Test that User model prevents collection creation/modification."""
+
+    # Test that attempting to create users collection raises error
+    with pytest.raises(RuntimeError) as exc_info:
+        User._create_collection()
+    assert "system collection" in str(exc_info.value)
+
+    # Test that attempting to update users collection raises error
+    with pytest.raises(RuntimeError) as exc_info:
+        # Create mock collection object with minimal required attributes
+        mock_collection = type(
+            "MockCollection", (), {"id": "mock_id", "name": "users", "schema": []}
+        )
+        User._update_collection(mock_collection)
+    assert "system collection" in str(exc_info.value)
+
+    # Test that we can still create and work with User instances
+    user = User(
+        email="test@example.com", password="securepassword123", name="Test User"
+    )
+    assert user.email == "test@example.com"
+    assert user.name == "Test User"
+
+
+def test_user_crud_operations(setup_models):
+    """Test CRUD operations for User model."""
+    test_users = []
+
+    try:
+        # Test creating a user
+        user = User(
+            email="test.user@example.com",
+            password="securepassword123",
+            passwordConfirm="securepassword123",
+            name="Test User",
+            emailVisibility=True,
+        )
+        user.save()
+        assert user.id, "User should have an ID after saving"
+        test_users.append(user)
+
+        # Test get_one
+        retrieved = User.get_one(user.id)
+        assert retrieved.email == "test.user@example.com"
+        assert retrieved.name == "Test User"
+        assert retrieved.password is None  # Password should not be returned
+
+        # Create more test users for list operations
+        for i in range(1, 4):
+            user = User(
+                email=f"test.user{i}@example.com",
+                password="securepassword123",
+                passwordConfirm="securepassword123",
+                name=f"Test User {i}",
+            ).save()
+            test_users.append(user)
+
+        # Test get_list with pagination
+        users_page = User.get_list(page=1, per_page=2)
+        assert len(users_page) == 2, "Should return 2 users per page"
+
+        # Test get_full_list
+        all_users = User.get_full_list()
+        assert len(all_users) >= len(test_users), "Should return all test users"
+
+        # Test get_first_list_item with filter
+        first_user = User.get_first_list_item('email = "test.user1@example.com"')
+        assert first_user.email == "test.user1@example.com"
+
+        # Test updating a user
+        user = test_users[0]
+        user.name = "Updated Name"
+        user.save()
+
+        updated = User.get_one(user.id)
+        assert updated.name == "Updated Name"
+
+    finally:
+        # Cleanup - delete test users
+        for user in test_users:
+            try:
+                User.delete(user.id)
+            except Exception as e:
+                print(f"Error cleaning up test user {user.id}: {e}")
