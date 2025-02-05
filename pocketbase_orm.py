@@ -6,9 +6,8 @@ from pocketbase.client import FileUpload
 from datetime import datetime, timezone
 import httpx
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="PBModel")
@@ -30,7 +29,7 @@ class PBModel(BaseModel):
     Provides methods for schema synchronization and querying the PocketBase database.
     """
 
-    id: str = Field(default="")
+    id: str | None = None
     created: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -293,7 +292,6 @@ class PBModel(BaseModel):
                         )
                         logger.debug(f"Found collection for {name}: {collection.id}")
 
-                        # Match the exact RelationField structure from Go
                         field_def.update(
                             {
                                 "name": name,
@@ -461,7 +459,6 @@ class User(PBModel):
     """Model class for PocketBase's built-in users collection."""
     
     email: EmailStr
-    id: str | None = None
     password: str | None = None  # Only used when creating/updating
     passwordConfirm: str | None = None  # Required when creating/updating password
     emailVisibility: bool = False
