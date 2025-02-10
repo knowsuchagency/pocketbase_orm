@@ -1,12 +1,13 @@
 import logging
 from typing import TypeVar, Dict, Any, Union
+from enum import Enum  # added for enum support
 from pydantic import BaseModel, EmailStr, AnyUrl, Field
 from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from datetime import datetime, timezone
 import httpx
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 logger = logging.getLogger(__name__)
 
@@ -267,6 +268,25 @@ class PBModel(BaseModel):
             field_info = model_fields[name]
             field_def["required"] = field_info.is_required()
 
+            # Configure enum select field options if applicable
+            let_enum = None
+            if hasattr(field, "__origin__") and field.__origin__ is Union:
+                for arg in field.__args__:
+                    if isinstance(arg, type) and issubclass(arg, Enum):
+                        let_enum = arg
+                        break
+            elif isinstance(field, type) and issubclass(field, Enum):
+                let_enum = field
+
+            if let_enum is not None and field_def["type"] == "select":
+                field_def.update( {
+                    "maxSelect": 1,
+                    "values": [e.value for e in let_enum],
+                })
+                logger.debug(
+                    f"Configured enum select field {name} with: {field_def}"
+                )
+
             # Add additional configuration for relation fields
             if field_def["type"] == "relation":
                 logger.debug(f"Configuring relation field {name}")
@@ -281,7 +301,6 @@ class PBModel(BaseModel):
                             continue
                         related_model = arg
                         logger.debug(f"Found related model for {name}: {related_model}")
-
                 if related_model and hasattr(related_model, "Meta"):
                     try:
                         logger.debug(
@@ -328,16 +347,21 @@ class PBModel(BaseModel):
         """
         Convert the Pydantic field type into a PocketBase field type.
         """
-        # Handle Union types (typically used for relations)
+        # Handle Union types (typically used for relations) and enums
         if hasattr(pydantic_field, "__origin__") and pydantic_field.__origin__ is Union:
-            # Check if FileUpload is in the Union types
+            # Check if any of the types in the Union is an Enum
+            for arg in pydantic_field.__args__:
+                if isinstance(arg, type) and issubclass(arg, Enum):
+                    return "select"
             if FileUpload in pydantic_field.__args__:
                 return "file"
-            # If one of the types is str, it's likely a relation field
             if str in pydantic_field.__args__:
                 return "relation"
-            # For other Union types, default to json
             return "json"
+
+        # Check if field is an Enum
+        if isinstance(pydantic_field, type) and issubclass(pydantic_field, Enum):
+            return "select"
 
         if pydantic_field == FileUpload:
             return "file"
@@ -457,7 +481,7 @@ class PBModel(BaseModel):
 
 class User(PBModel):
     """Model class for PocketBase's built-in users collection."""
-    
+
     email: EmailStr
     password: str | None = None  # Only used when creating/updating
     passwordConfirm: str | None = None  # Required when creating/updating password

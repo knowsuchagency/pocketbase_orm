@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from pocketbase_orm import PBModel, User
+from enum import Enum
 
 
 class RelatedModel(PBModel):
@@ -49,6 +50,20 @@ class Example(PBModel):
         return v  # In case it's None
 
 
+class UserType(str, Enum):
+    ADMIN = "admin"
+    REGULAR = "regular"
+    GUEST = "guest"
+
+
+class ModelWithEnum(PBModel):
+    name: str
+    user_type: UserType
+
+    class Meta:
+        collection_name = "enum_models"
+
+
 @pytest.fixture
 def pb_client():
     """Fixture to provide an authenticated PocketBase client."""
@@ -70,6 +85,7 @@ def setup_models(pb_client):
     PBModel.bind_client(pb_client)
     RelatedModel.sync_collection()
     Example.sync_collection()
+    ModelWithEnum.sync_collection()
 
 
 @pytest.fixture
@@ -310,3 +326,20 @@ def test_user_crud_operations(setup_models):
                 User.delete(user.id)
             except Exception as e:
                 print(f"Error cleaning up test user {user.id}: {e}")
+
+
+def test_enum_field_handling(setup_models):
+    """Test handling of enum fields in the model."""
+    # Create an instance of ModelWithEnum with an enum value
+    instance = ModelWithEnum(name="Enum Test", user_type=UserType.ADMIN)
+    instance.save()
+
+    # Retrieve the instance and check the enum field
+    retrieved = ModelWithEnum.get_one(instance.id)
+    # Pydantic should convert the stored string to the enum member
+    assert (
+        retrieved.user_type == UserType.ADMIN
+    ), f"Expected {UserType.ADMIN}, got {retrieved.user_type}"
+
+    # Cleanup
+    ModelWithEnum.delete(instance.id)
