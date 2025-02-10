@@ -41,8 +41,8 @@ class Example(PBModel):  # Collection name will be "examples" by default
 # Initialize PocketBase client and bind it to the ORM
 client = PBModel.init_client(
     "YOUR_POCKETBASE_URL",
-    "admin@example.com",  # Optional admin email
-    "password"           # Optional admin password
+    "admin@example.com",
+    "password"
 )
 
 # Sync collection schemas
