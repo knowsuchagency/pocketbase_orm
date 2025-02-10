@@ -26,7 +26,7 @@ class Example(PBModel):
     related_model: Union[RelatedModel, str] = Field(
         ..., description="Related model reference"
     )
-    image: Union[FileUpload, str, None] = Field(
+    image: FileUpload | str | None = Field(
         default=None, description="Image file upload"
     )
 
@@ -60,7 +60,7 @@ class ModelWithEnum(PBModel, collection="enum_models"):
     user_type: UserType
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def pb_client():
     """Fixture to provide an authenticated PocketBase client."""
     username = os.getenv("POCKETBASE_USERNAME")
@@ -73,7 +73,7 @@ def pb_client():
     return PBModel.init_client(url, username, password)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def setup_models(pb_client):
     """Fixture to bind the client and sync collections."""
     PBModel.bind_client(pb_client)
@@ -86,7 +86,7 @@ def setup_models(pb_client):
     RelatedModel.delete_collection()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def related_model(setup_models):
     """Fixture to create and return a test RelatedModel instance."""
     model = RelatedModel(name="Test Related Model")

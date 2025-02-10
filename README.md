@@ -36,7 +36,7 @@ class Example(PBModel):  # Collection name will be "examples" by default
     options: list[str]
     email_field: EmailStr | None = None
     related_model: RelatedModel | str = Field(..., description="Related model reference")
-    image: FileUpload | str = Field(default=None, description="Image file upload")
+    image: FileUpload | str = Field(..., description="Image file upload")
 
 # Initialize PocketBase client and bind it to the ORM
 client = PBModel.init_client(
@@ -136,6 +136,7 @@ The collection name will be automatically derived from the class name (pluralize
 - Complex queries should use the PocketBase client directly
 - Relationship handling is limited to single relations
 - Indexes must be created manually
+- Schemas need to be updated manually until [this issue](https://github.com/vaphes/pocketbase/issues/117) is resolved
 
 ## Contributing
 
