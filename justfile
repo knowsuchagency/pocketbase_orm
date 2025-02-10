@@ -9,3 +9,6 @@ publish: test clear build
 
 test:
     uv run pytest tests/
+
+format:
+    uvx ruff format .
