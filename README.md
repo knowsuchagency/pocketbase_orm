@@ -84,11 +84,19 @@ image_bytes = example.get_file_contents("image")
 Models inherit from `PBModel` and use Pydantic field types:
 
 ```python
+from enum import Enum
+
+class UserType(str, Enum):
+    ADMIN = "admin"
+    REGULAR = "regular"
+    GUEST = "guest"
+
 class MyModel(PBModel):
     name: str
     age: int
     email: EmailStr | None = None
-    
+    user_type: UserType  # Will be created as a select field in PocketBase
+
     class Meta:
         collection_name = "custom_collection_name"  # Optional
 ```
@@ -106,6 +114,7 @@ The collection name will be automatically derived from the class name (pluralize
 - JSON: `List`, `Dict`
 - File: `FileUpload | str`
 - Relation: `Union[RelatedModel, str]`
+- Select: `Enum`
 
 ## API Reference
 
@@ -113,6 +122,7 @@ The collection name will be automatically derived from the class name (pluralize
 
 - `bind_client(client: PocketBase)`: Bind PocketBase client to the model class
 - `sync_collection()`: Create or update the collection schema in PocketBase
+- `delete_collection()`: Delete the entire collection from PocketBase
 - `get_one(id: str, **kwargs) -> T`: Get a single record by ID
 - `get_list(*args, **kwargs) -> List[T]`: Get a paginated list of records
 - `get_full_list(*args, **kwargs) -> List[T]`: Get all records

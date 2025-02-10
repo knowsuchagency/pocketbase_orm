@@ -7,7 +7,7 @@ from pocketbase.client import FileUpload
 from datetime import datetime, timezone
 import httpx
 
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 
 logger = logging.getLogger(__name__)
 
