@@ -8,8 +8,8 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - 'README.md'
-      - '*.md'
+      - "README.md"
+      - "*.md"
   pull_request:
     branches: [main]
 
@@ -17,8 +17,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 1
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v2
