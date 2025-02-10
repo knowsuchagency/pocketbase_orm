@@ -1,12 +1,15 @@
 import os
-from typing import Union
-from pydantic import AnyUrl, EmailStr, Field, field_validator
-import pytest
 from datetime import datetime, timezone
+from enum import Enum
+from typing import Union
+import uuid
+
+import pytest
 from pocketbase import PocketBase
 from pocketbase.client import FileUpload
+from pydantic import AnyUrl, EmailStr, Field, field_validator
+
 from pocketbase_orm import PBModel, User
-from enum import Enum
 
 
 class RelatedModel(PBModel):
@@ -98,11 +101,6 @@ def related_model(setup_models):
     model = RelatedModel(name="Test Related Model")
     model.save()
     yield model
-    # Cleanup after test
-    try:
-        RelatedModel.delete(model.id)
-    except Exception:
-        pass
 
 
 def test_create_example_with_file(setup_models, related_model):
@@ -143,9 +141,6 @@ def test_create_example_with_file(setup_models, related_model):
         image_bytes = example.get_file_contents("image")
         assert len(image_bytes) > 0
 
-        # Cleanup
-        Example.delete(example.id)
-
 
 def test_related_model_crud(setup_models):
     """Test CRUD operations for RelatedModel."""
@@ -165,7 +160,7 @@ def test_related_model_crud(setup_models):
     assert updated.name == "Updated Name"
 
     # Delete
-    RelatedModel.delete(model.id)
+    RelatedModel.delete_by_id(model.id)
     with pytest.raises(Exception):
         RelatedModel.get_one(model.id)
 
@@ -217,32 +212,23 @@ def test_get_list_pagination(setup_models, related_model):
         example.save()
         examples.append(example)
 
-    try:
-        # Test first page (5 items)
-        page1 = Example.get_list(page=1, per_page=5)
-        assert len(page1) == 5
+    # Test first page (5 items)
+    page1 = Example.get_list(page=1, per_page=5)
+    assert len(page1) == 5
 
-        # Test second page (5 items)
-        page2 = Example.get_list(page=2, per_page=5)
-        assert len(page2) == 5
+    # Test second page (5 items)
+    page2 = Example.get_list(page=2, per_page=5)
+    assert len(page2) == 5
 
-        # Verify different records on different pages
-        page1_ids = {item.id for item in page1}
-        page2_ids = {item.id for item in page2}
-        assert not page1_ids.intersection(page2_ids)  # No overlap between pages
+    # Verify different records on different pages
+    page1_ids = {item.id for item in page1}
+    page2_ids = {item.id for item in page2}
+    assert not page1_ids.intersection(page2_ids)  # No overlap between pages
 
-        # Test with filter
-        filtered = Example.get_list(page=1, per_page=3, filter="number_field >= 10")
-        assert len(filtered) == 3
-        assert all(item.number_field >= 10 for item in filtered)
-
-    finally:
-        # Cleanup
-        for example in examples:
-            try:
-                Example.delete(example.id)
-            except Exception:
-                pass
+    # Test with filter
+    filtered = Example.get_list(page=1, per_page=3, filter="number_field >= 10")
+    assert len(filtered) == 3
+    assert all(item.number_field >= 10 for item in filtered)
 
 
 def test_user_collection_operations(setup_models):
@@ -272,64 +258,62 @@ def test_user_collection_operations(setup_models):
 
 def test_user_crud_operations(setup_models):
     """Test CRUD operations for User model."""
+
     test_users = []
 
-    try:
-        # Test creating a user
+    email = f"test.user{uuid.uuid4()}@example.com"
+
+    # Test creating a user
+    user = User(
+        email=email,
+        password="securepassword123",
+        passwordConfirm="securepassword123",
+        name="Test User",
+        emailVisibility=True,
+    )
+    user.save()
+    assert user.id, "User should have an ID after saving"
+    test_users.append(user)
+
+    # Test get_one
+    retrieved = User.get_one(user.id)
+    assert retrieved.email == email
+    assert retrieved.name == "Test User"
+    assert retrieved.password is None  # Password should not be returned
+
+    # Create more test users for list operations
+    for i in range(1, 4):
+        email = f"test.user{i}{uuid.uuid4()}@example.com"
         user = User(
-            email="test.user@example.com",
+            email=email,
             password="securepassword123",
             passwordConfirm="securepassword123",
-            name="Test User",
-            emailVisibility=True,
-        )
-        user.save()
-        assert user.id, "User should have an ID after saving"
+            name=f"Test User {i}",
+        ).save()
         test_users.append(user)
 
-        # Test get_one
-        retrieved = User.get_one(user.id)
-        assert retrieved.email == "test.user@example.com"
-        assert retrieved.name == "Test User"
-        assert retrieved.password is None  # Password should not be returned
+    # Test get_list with pagination
+    users_page = User.get_list(page=1, per_page=2)
+    assert len(users_page) == 2, "Should return 2 users per page"
 
-        # Create more test users for list operations
-        for i in range(1, 4):
-            user = User(
-                email=f"test.user{i}@example.com",
-                password="securepassword123",
-                passwordConfirm="securepassword123",
-                name=f"Test User {i}",
-            ).save()
-            test_users.append(user)
+    # Test get_full_list
+    all_users = User.get_full_list()
+    assert len(all_users) >= len(test_users), "Should return all test users"
 
-        # Test get_list with pagination
-        users_page = User.get_list(page=1, per_page=2)
-        assert len(users_page) == 2, "Should return 2 users per page"
+    # Test get_first_list_item with filter
+    first_user = User.get_first_list_item(f'email = "{email}"')
+    assert first_user.email == email
 
-        # Test get_full_list
-        all_users = User.get_full_list()
-        assert len(all_users) >= len(test_users), "Should return all test users"
+    # Test updating a user
+    user = test_users[0]
+    user.name = "Updated Name"
+    user.save()
 
-        # Test get_first_list_item with filter
-        first_user = User.get_first_list_item('email = "test.user1@example.com"')
-        assert first_user.email == "test.user1@example.com"
+    updated = User.get_one(user.id)
+    assert updated.name == "Updated Name"
 
-        # Test updating a user
-        user = test_users[0]
-        user.name = "Updated Name"
-        user.save()
-
-        updated = User.get_one(user.id)
-        assert updated.name == "Updated Name"
-
-    finally:
-        # Cleanup - delete test users
-        for user in test_users:
-            try:
-                User.delete(user.id)
-            except Exception as e:
-                print(f"Error cleaning up test user {user.id}: {e}")
+    for user in test_users:
+        user.delete()
 
 
 def test_enum_field_handling(setup_models):
@@ -341,9 +325,6 @@ def test_enum_field_handling(setup_models):
     # Retrieve the instance and check the enum field
     retrieved = ModelWithEnum.get_one(instance.id)
     # Pydantic should convert the stored string to the enum member
-    assert (
-        retrieved.user_type == UserType.ADMIN
-    ), f"Expected {UserType.ADMIN}, got {retrieved.user_type}"
-
-    # Cleanup
-    ModelWithEnum.delete(instance.id)
+    assert retrieved.user_type == UserType.ADMIN, (
+        f"Expected {UserType.ADMIN}, got {retrieved.user_type}"
+    )

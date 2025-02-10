@@ -1,13 +1,14 @@
 import logging
-from typing import TypeVar, Dict, Any, Union
-from enum import Enum  # added for enum support
-from pydantic import BaseModel, EmailStr, AnyUrl, Field
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, TypeVar, Union
+
+import httpx
 from pocketbase import PocketBase
 from pocketbase.client import FileUpload
-from datetime import datetime, timezone
-import httpx
+from pydantic import AnyUrl, BaseModel, EmailStr, Field
 
-__version__ = "0.9.2"
+__version__ = "0.10.0"
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +69,13 @@ class PBModel(BaseModel):
         return cls._pb_client.collection(cls.get_collection_name())
 
     @classmethod
-    def delete(cls, *args, **kwargs):
-        """Delete a record from the collection."""
-        return cls.get_collection().delete(*args, **kwargs)
+    def delete_by_id(cls, id: str, *args, **kwargs):
+        """Delete a record from the collection by ID."""
+        return cls.get_collection().delete(id, *args, **kwargs)
+
+    def delete(self, id=None, *args, **kwargs):
+        """Delete this record instance from the collection."""
+        return self.get_collection().delete(id or self.id, *args, **kwargs)
 
     @classmethod
     def delete_collection(cls):
