@@ -69,7 +69,7 @@ def pb_client():
     url = os.getenv("POCKETBASE_URL")
 
     if not all([username, password, url]):
-        pytest.skip("PocketBase credentials not set in environment")
+        raise ValueError("PocketBase credentials not set in environment")
 
     client = PocketBase(url)
     client.admins.auth_with_password(username, password)
