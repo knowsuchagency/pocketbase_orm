@@ -5,7 +5,6 @@ from typing import Union
 import uuid
 
 import pytest
-from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from pydantic import AnyUrl, EmailStr, Field, field_validator
 
@@ -71,9 +70,7 @@ def pb_client():
     if not all([username, password, url]):
         raise ValueError("PocketBase credentials not set in environment")
 
-    client = PocketBase(url)
-    client.admins.auth_with_password(username, password)
-    return client
+    return PBModel.init_client(url, username, password)
 
 
 @pytest.fixture

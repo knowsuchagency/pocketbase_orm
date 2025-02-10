@@ -8,7 +8,7 @@ from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from pydantic import AnyUrl, BaseModel, EmailStr, Field
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,33 @@ class PBModel(BaseModel):
         Bind the PocketBase client to the model class.
         """
         cls._pb_client = client
+
+    @classmethod
+    def init_client(
+        cls,
+        url: str,
+        admin_email: str | None = None,
+        admin_password: str | None = None,
+    ) -> PocketBase:
+        """
+        Initialize a PocketBase client and bind it to the model class.
+
+        Args:
+            url: The PocketBase server URL
+            admin_email: Optional admin email for authentication
+            admin_password: Optional admin password for authentication
+
+        Returns:
+            The initialized PocketBase client
+
+        Example:
+            client = PBModel.init_client("http://127.0.0.1:8090", "admin@example.com", "password")
+        """
+        client = PocketBase(url)
+        if admin_email and admin_password:
+            client.admins.auth_with_password(admin_email, admin_password)
+        cls.bind_client(client)
+        return client
 
     @classmethod
     def get_collection_name(cls) -> str:
