@@ -37,8 +37,8 @@ jobs:
       - name: Run Tests
         timeout-minutes: 10
         env:
-          POCKETBASE_URL: ${{ vars.POCKETBASE_URL }}
-          POCKETBASE_USERNAME: ${{ vars.POCKETBASE_USERNAME }}
-          POCKETBASE_PASSWORD: ${{ vars.POCKETBASE_PASSWORD }}
+          POCKETBASE_URL: ${{ secrets.POCKETBASE_URL }}
+          POCKETBASE_USERNAME: ${{ secrets.POCKETBASE_USERNAME }}
+          POCKETBASE_PASSWORD: ${{ secrets.POCKETBASE_PASSWORD }}
         run: |
           uv run pytest -v tests/
