@@ -1,0 +1,44 @@
+name: Tests
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - '*.md'
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install uv
+          uv sync
+
+      - name: Run Tests
+        timeout-minutes: 10
+        env:
+          POCKETBASE_URL: ${{ vars.POCKETBASE_URL }}
+          POCKETBASE_USERNAME: ${{ vars.POCKETBASE_USERNAME }}
+          POCKETBASE_PASSWORD: ${{ vars.POCKETBASE_PASSWORD }}
+        run: |
+          # Note: Some tests are expected to be skipped based on model capabilities
+          uv run pytest -v tests/
