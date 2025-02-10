@@ -29,4 +29,4 @@ jobs:
           UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
         run: |
           uv build
-          uv publish
+          uv publish || if [ $? -eq 2 ] && [[ $(grep "400 File already exists" <<< $(cat /dev/stderr)) ]]; then echo "File already exists, skipping" && exit 0; else exit $?; fi
