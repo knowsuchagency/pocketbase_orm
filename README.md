@@ -127,11 +127,12 @@ The collection name will be automatically derived from the class name (pluralize
 - `get_list(*args, **kwargs) -> List[T]`: Get a paginated list of records
 - `get_full_list(*args, **kwargs) -> List[T]`: Get all records
 - `get_first_list_item(*args, **kwargs) -> T`: Get the first matching record
-- `delete(*args, **kwargs)`: Delete a record
+- `delete_by_id(id: str, **kwargs)`: Delete a record by ID
 
 ### Instance Methods
 
 - `save() -> T`: Create or update the record
+- `delete()`: Delete the current record
 - `get_file_contents(field: str) -> bytes`: Get the contents of a file field
 
 ## Limitations
