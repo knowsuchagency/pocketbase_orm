@@ -86,6 +86,10 @@ def setup_models(pb_client):
     RelatedModel.sync_collection()
     Example.sync_collection()
     ModelWithEnum.sync_collection()
+    yield
+    ModelWithEnum.delete_collection()
+    Example.delete_collection()
+    RelatedModel.delete_collection()
 
 
 @pytest.fixture

@@ -7,7 +7,7 @@ from pocketbase.client import FileUpload
 from datetime import datetime, timezone
 import httpx
 
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +71,34 @@ class PBModel(BaseModel):
     def delete(cls, *args, **kwargs):
         """Delete a record from the collection."""
         return cls.get_collection().delete(*args, **kwargs)
+
+    @classmethod
+    def delete_collection(cls):
+        """
+        Delete the entire collection from PocketBase.
+
+        Raises:
+            RuntimeError: If PocketBase client is not bound
+            Exception: If deletion fails or collection doesn't exist
+        """
+        if not hasattr(cls, "_pb_client") or cls._pb_client is None:
+            raise RuntimeError(
+                "PocketBase client not bound. Call PBModel.bind_client() first."
+            )
+
+        collection_name = cls.get_collection_name()
+        try:
+            # Get collection ID first
+            collection = cls._pb_client.collections.get_one(collection_name)
+            # Delete the collection
+            cls._pb_client.collections.delete(collection.id)
+            logger.debug(f"Collection {collection_name} deleted successfully.")
+        except Exception as e:
+            if "404" in str(e):
+                logger.warning(f"Collection {collection_name} does not exist.")
+            else:
+                logger.error(f"Error deleting collection {collection_name}: {e}")
+                raise
 
     @classmethod
     def _process_record_data(cls, record_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -279,13 +307,13 @@ class PBModel(BaseModel):
                 let_enum = field
 
             if let_enum is not None and field_def["type"] == "select":
-                field_def.update( {
-                    "maxSelect": 1,
-                    "values": [e.value for e in let_enum],
-                })
-                logger.debug(
-                    f"Configured enum select field {name} with: {field_def}"
+                field_def.update(
+                    {
+                        "maxSelect": 1,
+                        "values": [e.value for e in let_enum],
+                    }
                 )
+                logger.debug(f"Configured enum select field {name} with: {field_def}")
 
             # Add additional configuration for relation fields
             if field_def["type"] == "relation":
