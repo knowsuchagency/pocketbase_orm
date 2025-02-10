@@ -41,5 +41,4 @@ jobs:
           POCKETBASE_USERNAME: ${{ vars.POCKETBASE_USERNAME }}
           POCKETBASE_PASSWORD: ${{ vars.POCKETBASE_PASSWORD }}
         run: |
-          # Note: Some tests are expected to be skipped based on model capabilities
           uv run pytest -v tests/
