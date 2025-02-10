@@ -12,11 +12,8 @@ from pydantic import AnyUrl, EmailStr, Field, field_validator
 from pocketbase_orm import PBModel, User
 
 
-class RelatedModel(PBModel):
+class RelatedModel(PBModel, collection="related_models"):
     name: str
-
-    class Meta:
-        collection_name = "related_models"
 
 
 class Example(PBModel):
@@ -59,12 +56,9 @@ class UserType(str, Enum):
     GUEST = "guest"
 
 
-class ModelWithEnum(PBModel):
+class ModelWithEnum(PBModel, collection="enum_models"):
     name: str
     user_type: UserType
-
-    class Meta:
-        collection_name = "enum_models"
 
 
 @pytest.fixture
@@ -325,6 +319,6 @@ def test_enum_field_handling(setup_models):
     # Retrieve the instance and check the enum field
     retrieved = ModelWithEnum.get_one(instance.id)
     # Pydantic should convert the stored string to the enum member
-    assert retrieved.user_type == UserType.ADMIN, (
-        f"Expected {UserType.ADMIN}, got {retrieved.user_type}"
-    )
+    assert (
+        retrieved.user_type == UserType.ADMIN
+    ), f"Expected {UserType.ADMIN}, got {retrieved.user_type}"

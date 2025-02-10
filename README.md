@@ -25,13 +25,10 @@ from datetime import datetime, timezone
 from pocketbase.client import FileUpload
 
 # Define your models
-class RelatedModel(PBModel):
+class RelatedModel(PBModel, collection="related_models"):  # Optionally specify collection name
     name: str
 
-    class Meta:
-        collection_name = "related_models" # Optional
-
-class Example(PBModel):
+class Example(PBModel):  # Collection name will be "examples" by default
     text_field: str
     number_field: int
     is_active: bool
@@ -91,17 +88,14 @@ class UserType(str, Enum):
     REGULAR = "regular"
     GUEST = "guest"
 
-class MyModel(PBModel):
+class MyModel(PBModel, collection="my_models"):  # Specify custom collection name
     name: str
     age: int
     email: EmailStr | None = None
     user_type: UserType  # Will be created as a select field in PocketBase
-
-    class Meta:
-        collection_name = "custom_collection_name"  # Optional
 ```
 
-The collection name will be automatically derived from the class name (pluralized) if not specified in the Meta class.
+The collection name will be automatically derived from the class name (pluralized) if not specified using the `collection` parameter when subclassing `PBModel`.
 
 ## Supported Field Types
 

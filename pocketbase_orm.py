@@ -8,7 +8,7 @@ from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from pydantic import AnyUrl, BaseModel, EmailStr, Field
 
-__version__ = "0.10.0"
+__version__ = "0.12.0"
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,17 @@ class PBModel(BaseModel):
         str_min_length = 1
         arbitrary_types_allowed = True
 
+    def __init_subclass__(cls, *, collection: str | None = None, **kwargs):
+        """
+        Initialize subclass with optional collection name.
+        If collection name is not provided, it will be derived from the class name.
+        """
+        super().__init_subclass__(**kwargs)
+        if collection is not None:
+            cls._collection_name = collection
+        else:
+            cls._collection_name = _pluralize(cls.__name__.lower())
+
     @classmethod
     def bind_client(cls, client: PocketBase):
         """
@@ -51,11 +62,9 @@ class PBModel(BaseModel):
     def get_collection_name(cls) -> str:
         """
         Get the collection name for the model.
-        Returns the collection_name from Meta if it exists, otherwise pluralizes the class name.
+        Returns the collection name specified during class creation or derived from class name.
         """
-        if hasattr(cls, "Meta") and hasattr(cls.Meta, "collection_name"):
-            return cls.Meta.collection_name
-        return _pluralize(cls.__name__.lower())
+        return cls._collection_name
 
     @classmethod
     def get_collection(cls):
@@ -334,13 +343,13 @@ class PBModel(BaseModel):
                             continue
                         related_model = arg
                         logger.debug(f"Found related model for {name}: {related_model}")
-                if related_model and hasattr(related_model, "Meta"):
+                if related_model:
                     try:
                         logger.debug(
-                            f"Looking up collection for {related_model.Meta.collection_name}"
+                            f"Looking up collection for {related_model.get_collection_name()}"
                         )
                         collection = cls._pb_client.collections.get_one(
-                            related_model.Meta.collection_name
+                            related_model.get_collection_name()
                         )
                         logger.debug(f"Found collection for {name}: {collection.id}")
 
@@ -512,7 +521,7 @@ class PBModel(BaseModel):
             raise RuntimeError(f"Error fetching file contents: {e}")
 
 
-class User(PBModel):
+class User(PBModel, collection="users"):
     """Model class for PocketBase's built-in users collection."""
 
     email: EmailStr
@@ -522,9 +531,6 @@ class User(PBModel):
     verified: bool = False
     name: str | None = None
     avatar: Union[FileUpload, str, None] = None
-
-    class Meta:
-        collection_name = "users"
 
     @classmethod
     def _create_collection(cls):
