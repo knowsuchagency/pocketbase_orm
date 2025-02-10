@@ -29,4 +29,12 @@ jobs:
           UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
         run: |
           uv build
-          uv publish || if [ $? -eq 2 ] && [[ $(grep "400 File already exists" <<< $(cat /dev/stderr)) ]]; then echo "File already exists, skipping" && exit 0; else exit $?; fi
+          uv publish 2>&1 | tee publish_output.txt || {
+            if grep -q "400 File already exists" publish_output.txt; then
+              echo "Package version already exists on PyPI, skipping"
+              exit 0
+            else
+              cat publish_output.txt
+              exit 1
+            fi
+          }
