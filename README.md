@@ -69,9 +69,10 @@ with open("image.png", "rb") as f:
     example.save()
 
 # Query records
-examples = Example.get_full_list()
-single_example = Example.get_one("RECORD_ID")
-filtered_example = Example.get_first_list_item(filter='email_field = "test@example.com"')
+full_list = Example.get_full_list()
+one = Example.get_one("RECORD_ID")
+first = Example.get_first_list_item(filter='email_field = "test@example.com"')
+filtered_list = Example.get_list(filter='email_field = "test@example.com"')
 
 # Get file contents
 image_bytes = example.get_file_contents("image")
