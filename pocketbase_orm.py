@@ -8,7 +8,7 @@ from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from pydantic import AnyUrl, BaseModel, EmailStr, Field
 
-__version__ = "0.13.2"
+__version__ = "0.14.0"
 
 logger = logging.getLogger(__name__)
 
@@ -412,51 +412,60 @@ class PBModel(BaseModel):
         return fields
 
     @staticmethod
+    def _is_enum_type(field_type: Any) -> bool:
+        """Check if a type is an Enum subclass."""
+        return isinstance(field_type, type) and issubclass(field_type, Enum)
+
+    @staticmethod
+    def _is_pbmodel_type(field_type: Any) -> bool:
+        """Check if a type is a PBModel subclass."""
+        return isinstance(field_type, type) and issubclass(field_type, PBModel)
+
+    @staticmethod
     def _get_field_type(pydantic_field: Any) -> str:
         """
         Convert the Pydantic field type into a PocketBase field type.
         """
-        # Handle Union types (typically used for relations) and enums
-        if hasattr(pydantic_field, "__origin__") and pydantic_field.__origin__ is Union:
-            # Check if any of the types in the Union is an Enum
-            for arg in pydantic_field.__args__:
-                if isinstance(arg, type) and issubclass(arg, Enum):
-                    return "select"
-            if FileUpload in pydantic_field.__args__:
-                return "file"
-            if str in pydantic_field.__args__:
-                return "relation"
-            return "json"
-
-        # Check if field is an Enum
-        if isinstance(pydantic_field, type) and issubclass(pydantic_field, Enum):
-            return "select"
-
-        if pydantic_field == FileUpload:
-            return "file"
-
-        if hasattr(pydantic_field, "__origin__") and pydantic_field.__origin__ is list:
-            return "json"
-
-        if pydantic_field == str:
-            return "text"
-        elif pydantic_field == int or pydantic_field == float:
-            return "number"
-        elif pydantic_field == bool:
-            return "bool"
-        elif pydantic_field == EmailStr:
-            return "email"
-        elif pydantic_field == AnyUrl:
-            return "url"
-        elif pydantic_field == datetime:
-            return "date"
-        elif isinstance(pydantic_field, list):
-            return "json"
-        elif isinstance(pydantic_field, dict):
-            return "json"
+        # Get all possible types to check
+        types_to_check = []
+        if hasattr(pydantic_field, "__origin__"):
+            if pydantic_field.__origin__ is Union:
+                types_to_check.extend(pydantic_field.__args__)
+            elif pydantic_field.__origin__ is list:
+                return "json"
+        elif hasattr(pydantic_field, "__or__") and hasattr(pydantic_field, "__args__"):
+            types_to_check.extend(pydantic_field.__args__)
         else:
-            # Default to json for complex types
-            return "json"
+            types_to_check.append(pydantic_field)
+
+        # Check all types in priority order
+        for field_type in types_to_check:
+            # Special types
+            if PBModel._is_enum_type(field_type):
+                return "select"
+            if PBModel._is_pbmodel_type(field_type):
+                return "relation"
+            if field_type == FileUpload:
+                return "file"
+
+            # Basic types
+            if field_type == str:
+                return "text"
+            if field_type in (int, float):
+                return "number"
+            if field_type == bool:
+                return "bool"
+            if field_type == EmailStr:
+                return "email"
+            if field_type == AnyUrl:
+                return "url"
+            if field_type == datetime:
+                return "date"
+            if isinstance(field_type, (list, dict)):
+                return "json"
+
+        # Default to json for complex types
+        return "json"
 
     def save(self) -> T:
         """

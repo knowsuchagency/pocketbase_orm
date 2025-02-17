@@ -6,7 +6,7 @@ import uuid
 
 import pytest
 from pocketbase.client import FileUpload
-from pydantic import AnyUrl, EmailStr, Field, field_validator
+from pydantic import AnyUrl, EmailStr, Field
 
 from pocketbase_orm import PBModel, User
 
@@ -26,27 +26,9 @@ class Example(PBModel):
     related_model: Union[RelatedModel, str] = Field(
         ..., description="Related model reference"
     )
-    image: FileUpload | str | None = Field(
+    image: Union[FileUpload, str] | None = Field(
         default=None, description="Image file upload"
     )
-
-    @field_validator("related_model", mode="before")
-    def set_related_model(cls, v):
-        if isinstance(v, str):
-            return v  # If it's already an ID, keep it
-        if isinstance(v, PBModel):
-            return v.id  # If it's a model instance, return its ID
-        return v  # In case it's None
-
-    @field_validator("image", mode="before")
-    def validate_image(cls, v):
-        if v is None:
-            return v  # Allow None values
-        if isinstance(v, str):
-            return v  # Keep string URLs as-is
-        if isinstance(v, FileUpload):
-            return v  # Keep FileUpload objects as-is
-        return v  # In case it's None
 
 
 class UserType(str, Enum):
