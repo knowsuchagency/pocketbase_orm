@@ -8,7 +8,7 @@ from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from pydantic import AnyUrl, BaseModel, EmailStr, Field
 
-__version__ = "0.14.1"
+__version__ = "0.15.0"
 
 logger = logging.getLogger(__name__)
 

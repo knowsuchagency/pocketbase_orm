@@ -139,19 +139,19 @@ wheels = [
 
 [[package]]
 name = "pocketbase"
-version = "0.14.0"
+version = "0.15.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ca/8c/589e30935a8c5618ec2a541a14cfd1fafb96c97a94cbe984a46d5664aff7/pocketbase-0.14.0.tar.gz", hash = "sha256:154c704964bfaabf17f2c3c7c4ad0869a30e62af9e7208f63f9bb6748805e67b", size = 17953 }
+sdist = { url = "https://files.pythonhosted.org/packages/3d/4e/3397e1021325f026458b7a7cffa2353b6827f05db9d6054b65318f4a70d3/pocketbase-0.15.0.tar.gz", hash = "sha256:dd3a8ce20da09a83f5e0a5b55fc72d40874f562c15d886d5ec5a072e346d3fd9", size = 16825 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/10/a1e52639ae82088dd5cba50eb6fcc2e0e8fd0add859a54785b6c16f2a7b9/pocketbase-0.14.0-py3-none-any.whl", hash = "sha256:3077f21cd24c5543301e28058bbcb93d2ea5048872cac1669ab4497faab784a8", size = 27773 },
+    { url = "https://files.pythonhosted.org/packages/8f/ac/880b1290e0378c781941d071070dac16871212d2f8b2222daadacd28f59e/pocketbase-0.15.0-py3-none-any.whl", hash = "sha256:f5a77e73a661859353cf2f51422ee54b77374c21ea1781cf7e0baffb6e110cc7", size = 28024 },
 ]
 
 [[package]]
 name = "pocketbase-orm"
-version = "0.3.1"
+version = "0.14.1"
 source = { editable = "." }
 dependencies = [
     { name = "pocketbase" },
@@ -165,7 +165,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pocketbase", specifier = ">=0.14.0" },
+    { name = "pocketbase", specifier = ">=0.15.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.10.6" },
 ]
 
