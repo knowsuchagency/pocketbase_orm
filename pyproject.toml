@@ -4,21 +4,17 @@ requires = ["flit_core >=3.2,<4"]
 
 [project]
 dependencies = [
-  "pocketbase>=0.15.0",
+  "pocketbase @ git+https://github.com/knowsuchagency/pocketbase.git@update-collection-field",
   "pydantic[email]>=2.10.6",
 ]
 description = "Add your description here"
+dynamic = ["version"]
 license = {file = "LICENSE"}
 name = "pocketbase-orm"
 readme = "README.md"
 requires-python = ">=3.11"
-dynamic = ["version"]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.4",
+  "pytest>=8.3.4",
 ]
-
-# TODO: Remove this once https://github.com/vaphes/pocketbase/pull/120 is merged
-[tool.uv.sources]
-pocketbase = { git = "https://github.com/knowsuchagency/pocketbase", branch = "update-collection-field" }

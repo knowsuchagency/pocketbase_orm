@@ -140,14 +140,14 @@ wheels = [
 [[package]]
 name = "pocketbase"
 version = "0.15.0"
-source = { git = "https://github.com/knowsuchagency/pocketbase?branch=update-collection-field#2f1bc1b646c98eed5ea35362f9fa3a03538cd5b2" }
+source = { git = "https://github.com/knowsuchagency/pocketbase.git?rev=update-collection-field#2f1bc1b646c98eed5ea35362f9fa3a03538cd5b2" }
 dependencies = [
     { name = "httpx" },
 ]
 
 [[package]]
 name = "pocketbase-orm"
-version = "0.16.0"
+version = "0.17.0"
 source = { editable = "." }
 dependencies = [
     { name = "pocketbase" },
@@ -161,7 +161,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pocketbase", git = "https://github.com/knowsuchagency/pocketbase?branch=update-collection-field" },
+    { name = "pocketbase", git = "https://github.com/knowsuchagency/pocketbase.git?rev=update-collection-field" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.10.6" },
 ]
 
