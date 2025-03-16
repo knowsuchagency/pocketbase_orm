@@ -289,6 +289,72 @@ def test_user_crud_operations(setup_models):
         user.delete()
 
 
+def test_sync_collection_add_fields(pb_client):
+    """Test that sync_collection can add new fields to an existing collection."""
+
+    collection_name = "test_sync_model"
+
+    # Define initial model with basic fields
+    class InitialModel(PBModel, collection=collection_name):
+        name: str
+        count: int
+
+    # Bind client to the model
+    InitialModel.bind_client(pb_client)
+
+    try:
+        # Clean up any existing collection from previous test runs
+        try:
+            InitialModel.delete_collection()
+        except:
+            pass
+
+        # 1. Create the collection with initial fields
+        InitialModel.sync_collection()
+
+        # Verify the collection exists with expected fields
+        collection = pb_client.collections.get_one(collection_name)
+        field_names = [field.name for field in collection.fields]
+
+        # Should have name, count, created, and updated fields
+        assert "name" in field_names
+        assert "count" in field_names
+        assert "created" in field_names
+        assert "updated" in field_names
+        assert "description" not in field_names  # Shouldn't have new fields yet
+        assert "active" not in field_names
+
+        # 2. Now define an extended model with additional fields
+        class ExtendedModel(PBModel, collection=collection_name):
+            name: str
+            count: int
+            description: str
+            active: bool
+
+        # Bind client and sync extended model to update the collection
+        ExtendedModel.bind_client(pb_client)
+        ExtendedModel.sync_collection()
+
+        # Verify the collection now has the new fields
+        updated_collection = pb_client.collections.get_one(collection_name)
+        updated_field_names = [field.name for field in updated_collection.fields]
+
+        # Should now have all fields including the new ones
+        assert "name" in updated_field_names
+        assert "count" in updated_field_names
+        assert "created" in updated_field_names
+        assert "updated" in updated_field_names
+        assert "description" in updated_field_names  # New field should exist
+        assert "active" in updated_field_names  # New field should exist
+
+    finally:
+        # Clean up
+        try:
+            InitialModel.delete_collection()
+        except:
+            pass
+
+
 def test_enum_field_handling(setup_models):
     """Test handling of enum fields in the model."""
     # Create an instance with an enum value
