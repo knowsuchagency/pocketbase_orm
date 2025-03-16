@@ -7,7 +7,7 @@ dependencies = [
   "pocketbase @ git+https://github.com/knowsuchagency/pocketbase.git@update-collection-field",
   "pydantic[email]>=2.10.6",
 ]
-description = "Add your description here"
+description = "An ORM for PocketBase based on Pydantic"
 dynamic = ["version"]
 license = {file = "LICENSE"}
 name = "pocketbase-orm"
