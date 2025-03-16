@@ -282,7 +282,6 @@ class PBModel(BaseModel):
                 final_fields.append(new_field)
 
         try:
-            print(f"{final_fields = }")
             cls._pb_client.collections.update(
                 existing_collection.id,
                 {
