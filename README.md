@@ -137,7 +137,7 @@ The collection name will be automatically derived from the class name (pluralize
 - Complex queries should use the PocketBase client directly
 - Relationship handling is limited to single relations
 - Indexes must be created manually
-- Schemas need to be updated manually until [this issue](https://github.com/vaphes/pocketbase/issues/117) is resolved
+- Schema syncing currently relies on a fork until https://github.com/vaphes/pocketbase/pull/120 is merged
 
 ## Contributing
 

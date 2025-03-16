@@ -8,7 +8,7 @@ from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from pydantic import AnyUrl, BaseModel, EmailStr, Field
 
-__version__ = "0.15.0"
+__version__ = "0.16.0"
 
 logger = logging.getLogger(__name__)
 
@@ -258,17 +258,19 @@ class PBModel(BaseModel):
         Update the collection schema in PocketBase.
         """
         # Get the schema from the existing collection
-        current_fields = {field.name: field for field in existing_collection.schema}
+        current_fields = {field.name: field for field in existing_collection.fields}
         new_fields = cls._generate_fields()
 
         # Preserve existing fields and add new ones
         final_fields = []
-        for field in existing_collection.schema:
+        for field in existing_collection.fields:
             field_dict = {
                 "name": field.name,
                 "type": field.type,
                 "required": field.required,
                 "system": field.system,
+                "onCreate": field.onCreate,
+                "onUpdate": field.onUpdate,
             }
             if hasattr(field, "options") and field.options:
                 field_dict["options"] = field.options
@@ -280,11 +282,12 @@ class PBModel(BaseModel):
                 final_fields.append(new_field)
 
         try:
+            print(f"{final_fields = }")
             cls._pb_client.collections.update(
                 existing_collection.id,
                 {
                     "name": existing_collection.name,
-                    "schema": final_fields,
+                    "fields": final_fields,
                 },
             )
             logger.debug(f"Collection {existing_collection.name} updated successfully.")
@@ -327,6 +330,7 @@ class PBModel(BaseModel):
         )
 
         for name, field in cls.__annotations__.items():
+
             if name in ["id", "created", "updated"]:  # Skip base model fields
                 continue
 
@@ -404,6 +408,7 @@ class PBModel(BaseModel):
                 else:
                     logger.error(f"No valid related model found for field {name}")
                     raise ValueError(f"Invalid relation configuration for field {name}")
+            
 
             fields.append(field_def)
             logger.debug(f"Added field definition: {field_def}")
