@@ -39,7 +39,7 @@ class UserType(str, Enum):
 
 class ModelWithEnum(PBModel, collection="enum_models"):
     name: str
-    user_type: UserType
+    user_type: UserType  # Using the actual enum type
 
 
 @pytest.fixture(scope="session")
@@ -216,7 +216,7 @@ def test_user_collection_operations(setup_models):
     with pytest.raises(RuntimeError) as exc_info:
         # Create mock collection object with minimal required attributes
         mock_collection = type(
-            "MockCollection", (), {"id": "mock_id", "name": "users", "schema": []}
+            "MockCollection", (), {"id": "mock_id", "name": "users", "fields": []}
         )
         User._update_collection(mock_collection)
     assert "system collection" in str(exc_info.value)
@@ -291,13 +291,19 @@ def test_user_crud_operations(setup_models):
 
 def test_enum_field_handling(setup_models):
     """Test handling of enum fields in the model."""
-    # Create an instance of ModelWithEnum with an enum value
+    # Create an instance with an enum value
     instance = ModelWithEnum(name="Enum Test", user_type=UserType.ADMIN)
     instance.save()
 
-    # Retrieve the instance and check the enum field
+    # Retrieve the instance and check that it's converted to the proper enum type
     retrieved = ModelWithEnum.get_one(instance.id)
-    # Pydantic should convert the stored string to the enum member
-    assert (
-        retrieved.user_type == UserType.ADMIN
-    ), f"Expected {UserType.ADMIN}, got {retrieved.user_type}"
+    assert retrieved.user_type == UserType.ADMIN
+    assert isinstance(retrieved.user_type, UserType)  # Verify it's the actual enum type
+
+    # Test with another enum value
+    instance2 = ModelWithEnum(name="Enum Test 2", user_type=UserType.GUEST)
+    instance2.save()
+
+    retrieved2 = ModelWithEnum.get_one(instance2.id)
+    assert retrieved2.user_type == UserType.GUEST
+    assert isinstance(retrieved2.user_type, UserType)

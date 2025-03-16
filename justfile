@@ -8,7 +8,7 @@ publish: test clear build
     uv publish
 
 test:
-    uv run pytest tests/
+    uv run pytest -xvs tests/
 
 format:
     uvx ruff format .
