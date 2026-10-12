@@ -22,10 +22,10 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -34,11 +34,14 @@ jobs:
           python -m pip install uv
           uv sync
 
+      - name: Install Just
+        uses: extractions/setup-just@v3
+
+      - name: Install Pocketbase
+        run: |
+          just install-pocketbase
+
       - name: Run Tests
-        timeout-minutes: 10
-        env:
-          POCKETBASE_URL: ${{ secrets.POCKETBASE_URL }}
-          POCKETBASE_USERNAME: ${{ secrets.POCKETBASE_USERNAME }}
-          POCKETBASE_PASSWORD: ${{ secrets.POCKETBASE_PASSWORD }}
+        timeout-minutes: 5
         run: |
           uv run pytest -v tests/

@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Union
@@ -8,7 +7,7 @@ import pytest
 from pocketbase.client import FileUpload
 from pydantic import AnyUrl, EmailStr, Field
 
-from pocketbase_orm import PBModel, User
+from pocketbase_orm import PBModel, User, PBReference
 
 
 class RelatedModel(PBModel, collection="related_models"):
@@ -23,9 +22,7 @@ class Example(PBModel):
     created_at: datetime
     options: list[str]
     email_field: EmailStr | None = None
-    related_model: Union[RelatedModel, str] = Field(
-        ..., description="Related model reference"
-    )
+    related_model: PBReference[RelatedModel]
     image: Union[FileUpload, str] | None = Field(
         default=None, description="Image file upload"
     )
@@ -40,19 +37,6 @@ class UserType(str, Enum):
 class ModelWithEnum(PBModel, collection="enum_models"):
     name: str
     user_type: UserType  # Using the actual enum type
-
-
-@pytest.fixture(scope="session")
-def pb_client():
-    """Fixture to provide an authenticated PocketBase client."""
-    username = os.getenv("POCKETBASE_USERNAME")
-    password = os.getenv("POCKETBASE_PASSWORD")
-    url = os.getenv("POCKETBASE_URL")
-
-    if not all([username, password, url]):
-        raise ValueError("PocketBase credentials not set in environment")
-
-    return PBModel.init_client(url, username, password)
 
 
 @pytest.fixture(scope="session")
@@ -306,7 +290,7 @@ def test_sync_collection_add_fields(pb_client):
         # Clean up any existing collection from previous test runs
         try:
             InitialModel.delete_collection()
-        except:
+        except Exception as _:
             pass
 
         # 1. Create the collection with initial fields
@@ -351,7 +335,7 @@ def test_sync_collection_add_fields(pb_client):
         # Clean up
         try:
             InitialModel.delete_collection()
-        except:
+        except Exception as _:
             pass
 
 

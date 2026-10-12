@@ -18,7 +18,7 @@ uv install pocketbase-orm
 ## Quick Start
 
 ```python
-from pocketbase_orm import PBModel
+from pocketbase_orm import PBModel, PBReference
 from pydantic import EmailStr, AnyUrl, Field
 from datetime import datetime, timezone
 from pocketbase.client import FileUpload
@@ -35,7 +35,7 @@ class Example(PBModel):  # Collection name will be "examples" by default
     created_at: datetime
     options: list[str]
     email_field: EmailStr | None = None
-    related_model: RelatedModel | str = Field(..., description="Related model reference")
+    related_model: PBReference[RelatedModel]
     image: FileUpload | str = Field(..., description="Image file upload")
 
 # Initialize PocketBase client and bind it to the ORM
@@ -109,7 +109,7 @@ The collection name will be automatically derived from the class name (pluralize
 - DateTime: `datetime`
 - JSON: `List`, `Dict`
 - File: `FileUpload | str`
-- Relation: `Union[RelatedModel, str]`
+- Relation: `PBReference[RelatedModel]` (the older `RelatedModel | str` spelling still works)
 - Select: `Enum`
 
 ## API Reference
@@ -117,7 +117,7 @@ The collection name will be automatically derived from the class name (pluralize
 ### Class Methods
 
 - `bind_client(client: PocketBase)`: Bind PocketBase client to the model class
-- `sync_collection()`: Create or update the collection schema in PocketBase
+- `sync_collection(remove_missing_fields=False)`: Create or update the collection schema in PocketBase. Fields that exist in PocketBase but not on the model are kept unless `remove_missing_fields=True`, which drops them and their data
 - `delete_collection()`: Delete the entire collection from PocketBase
 - `get_one(id: str, **kwargs) -> T`: Get a single record by ID
 - `get_list(*args, **kwargs) -> List[T]`: Get a paginated list of records
@@ -138,6 +138,15 @@ The collection name will be automatically derived from the class name (pluralize
 - Relationship handling is limited to single relations
 - Indexes must be created manually
 - Schema syncing currently relies on a fork until https://github.com/vaphes/pocketbase/pull/120 is merged
+
+## Development
+
+Tests run against a local PocketBase started by the test fixture:
+
+```sh
+just install-pocketbase  # downloads the PocketBase binary into ./db
+just test
+```
 
 ## Contributing
 
