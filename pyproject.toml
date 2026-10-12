@@ -4,7 +4,7 @@ requires = ["flit_core >=3.2,<4"]
 
 [project]
 dependencies = [
-  "pocketbase @ git+https://github.com/44ai-labs/pocketbase.git@update-collection-fields",
+  "pocketbase @ git+https://github.com/knowsuchagency/pocketbase.git@collection-field-cost",
   "pydantic[email]>=2.10.6",
 ]
 description = "An ORM for PocketBase based on Pydantic"

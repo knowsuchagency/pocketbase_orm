@@ -1,4 +1,5 @@
 import logging
+import types
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, TypeVar, Union, Generic, get_origin, get_args, Type
@@ -8,7 +9,7 @@ from pocketbase import PocketBase
 from pocketbase.client import FileUpload
 from pydantic import AnyUrl, BaseModel, EmailStr, Field
 
-__version__ = "0.17.2"
+__version__ = "0.18.0"
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,22 @@ class PBReferenceType(Generic[T]):
 PBReference = (
     PBReferenceType[T] | str
 )  # has to be string to set it correctly when writing a relation id
+
+
+_FIELD_KEY_ALIASES = {
+    "primary_key": "primaryKey",
+    "auto_generate_pattern": "autogeneratePattern",
+}
+
+
+def _existing_field_payload(field: Any) -> Dict[str, Any]:
+    """Turn a collection field returned by the PocketBase client back into API JSON."""
+    payload = {}
+    for key, value in vars(field).items():
+        if value is None:
+            continue
+        payload[_FIELD_KEY_ALIASES.get(key, key)] = value
+    return payload
 
 
 def _pluralize(singular: str) -> str:
@@ -215,16 +232,23 @@ class PBModel(BaseModel):
         return cls.model_validate(processed_data)
 
     @classmethod
-    def sync_collection(cls):
+    def sync_collection(cls, remove_missing_fields: bool = False):
         """
         Sync the collection schema with PocketBase. Will create or update the collection.
+
+        Args:
+            remove_missing_fields: When True, fields that exist in PocketBase but are
+                no longer declared on the model are dropped from the collection,
+                along with their data. Defaults to False, which keeps them.
         """
         collection_name = cls.get_collection_name()
 
         try:
             existing_collection = cls._pb_client.collections.get_one(collection_name)
             logger.debug(f"Collection {collection_name} exists. Updating schema...")
-            cls._update_collection(existing_collection)
+            cls._update_collection(
+                existing_collection, remove_missing_fields=remove_missing_fields
+            )
         except Exception as e:
             if "404" in str(e):  # Only create if collection doesn't exist
                 logger.debug(
@@ -267,7 +291,7 @@ class PBModel(BaseModel):
             raise
 
     @classmethod
-    def _update_collection(cls, existing_collection):
+    def _update_collection(cls, existing_collection, remove_missing_fields=False):
         """
         Update the collection schema in PocketBase.
         """
@@ -279,24 +303,18 @@ class PBModel(BaseModel):
         # Preserve existing fields and add new ones
         final_fields = []
         for field in existing_collection.fields:
-            if field.name not in all_fields:
-                # the field will be removed
+            if (
+                remove_missing_fields
+                and field.name not in all_fields
+                and not field.system
+            ):
+                logger.debug(f"Removing field {field.name} not declared on the model")
                 continue
-            field_dict = {
-                "name": field.name,
-                "type": field.type,
-                "required": field.required,
-                "system": field.system,
-                "onCreate": field.onCreate,
-                "onUpdate": field.onUpdate,
-            }
-            if hasattr(field, "options") and field.options:
-                field_dict["options"] = field.options
-            # make sure we sync references correct
-            field_name = field.name
-            for new_field in new_fields:
-                if new_field["name"] == field_name:
-                    field_dict.update(new_field)
+            # Start from the field as PocketBase has it (keeping its id, so the
+            # column and its data are kept) and apply the model's definition on top.
+            field_dict = _existing_field_payload(field)
+            if field.name in all_fields:
+                field_dict.update(all_fields[field.name])
             final_fields.append(field_dict)
 
         # Add new fields that don't exist yet
@@ -397,18 +415,19 @@ class PBModel(BaseModel):
                 logger.debug(f"Configuring relation field {name}")
                 # Find the related model in Union types
                 related_model = None
-                if hasattr(field, "__origin__") and field.__origin__ is Union:
-                    for arg in field.__args__:
+                if get_origin(field) in (Union, types.UnionType):
+                    for arg in get_args(field):
                         if arg is str:
                             continue
                         if cls._is_reference_type(arg):
-                            print(f"Found reference type for {name}: {arg}")
-                            releated_model = cls.get_referenced_pbmodel_type(arg)
-                            if releated_model:
-                                related_model = releated_model
-                                logger.debug(
-                                    f"Found related model for {name}: {related_model}"
-                                )
+                            related_model = cls.get_referenced_pbmodel_type(arg)
+                        elif cls._is_pbmodel_type(arg):
+                            # Legacy syntax: `RelatedModel | str`
+                            related_model = arg
+                        if related_model:
+                            logger.debug(
+                                f"Found related model for {name}: {related_model}"
+                            )
                             break
                 if related_model:
                     try:
@@ -457,8 +476,13 @@ class PBModel(BaseModel):
         return isinstance(field_type, type) and issubclass(field_type, Enum)
 
     @staticmethod
-    def _is_reference_type(field_type: type) -> bool:
+    def _is_pbmodel_type(field_type: Any) -> bool:
         """Check if a type is a PBModel subclass."""
+        return isinstance(field_type, type) and issubclass(field_type, PBModel)
+
+    @staticmethod
+    def _is_reference_type(field_type: Any) -> bool:
+        """Check if a type is a PBReference."""
         origin = get_origin(field_type)
         if origin is PBReferenceType:
             return True
@@ -488,7 +512,9 @@ class PBModel(BaseModel):
             # Special types
             if PBModel._is_enum_type(field_type):
                 return "select"
-            if PBModel._is_reference_type(field_type):
+            if PBModel._is_reference_type(field_type) or PBModel._is_pbmodel_type(
+                field_type
+            ):
                 return "relation"
             if field_type == FileUpload:
                 return "file"
@@ -621,7 +647,7 @@ class User(PBModel, collection="users"):
         )
 
     @classmethod
-    def _update_collection(cls, existing_collection):
+    def _update_collection(cls, existing_collection, remove_missing_fields=False):
         """Override to prevent modification of system collection."""
         raise RuntimeError(
             "Cannot create or modify the users collection as it is a system collection."

@@ -11,10 +11,10 @@ test:
     uv run pytest -xvs tests/
 
 format:
-    uvx ruff check . --fix && uvx ruff format .
+    uvx ruff@0.11.13 check . --fix && uvx ruff@0.11.13 format .
 
 ruff-ci:
-    uvx ruff check . && uvx ruff format --check .
+    uvx ruff@0.11.13 check . && uvx ruff@0.11.13 format --check .
 
 # sudo apt install curl unzip
 install-pocketbase:
